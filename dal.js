@@ -4,8 +4,8 @@
  * Taki cards deck consists of 116 cards:
  * - each number card - 2 of each color
  * - +2, stop, change direction, plus, taki - 2 of each color
- * - change color - 4
- * - super taki, king, +3, break +3 - 2 of each
+ * - change color - 4 (uncolored)
+ * - super taki, king, +3, break +3 - 2 of each (uncolored)
  * define number of players
  * define the playing order     // TODO: should be bthread?
  * deal 8 cards to each player
@@ -40,24 +40,22 @@ const CardsAmounts = [].concat(
 
 const AllCards = flat(
   CardsAmounts.map((card) => {
+    // colored cards
     if (card.isColored)
       return flat(
         Object.values(CardColors).map((color) =>
           Array.from({ length: card.amount }, () =>
-            Card(card.name, color, CardStatuses.DrawPile)
+            Card(card.name, color, CardStatus.DrawPile)
           )
         )
       );
 
     // uncolored cards
     return Array.from({ length: card.amount }, () =>
-      Card(card.name, undefined, CardStatuses.DrawPile)
+      Card(card.name, undefined, CardStatus.DrawPile)
     );
   })
 );
-
-// define number of players
-const PlayersNumber = 3;
 
 /////////////// Context ///////////////
 
@@ -68,11 +66,11 @@ const PlayersNumber = 3;
  * draw pile
  * discard pile
  * leading card
- * turns direction (+1/-1) - default +1   // TODO: should be bthread?
+ * turns direction (+1/-1) - default +1
  */
 
 const CardEntities = AllCards.map((card, i) =>
-  ctx.Entity(cardId(card.name, card.color, i), CARD_TYPE, card)
+  ctx.Entity(cardId(card.name, card.color, i), CARD_TYPE, { card })
 );
 
 const PlayerEntities = Array.from({ length: PlayersNumber }, (_, i) =>
@@ -84,7 +82,9 @@ ctx.populateContext(
     // all cards
     CardEntities,
     // players
-    PlayerEntities
+    PlayerEntities,
+    // turns direction (+1/-1) - default +1
+    ctx.Entity(DIRECTION_ID, DIRECTION_TYPE, { direction: 1 })
   )
 );
 
@@ -92,7 +92,7 @@ ctx.populateContext(
 
 /** Queries:
  * current player's cards:
- * - separate qurey for each type card (to know how to create the move events in separate bthreads) ?
+ * - separate query for each type card (to know how to create the move events in separate bthreads) ?
  * is player's last card
  * is player emptied his hand
  * is +2 sequence (and how many till now)
@@ -107,4 +107,14 @@ ctx.registerQuery(CardQueryNames.AllCards, function (entity) {
 
 ctx.registerQuery(PlayerQueryNames.AllPlayers, function (entity) {
   return entity.type === PLAYER_TYPE;
+});
+
+ctx.registerQuery(PlayerQueryNames.WithCards, function (entity) {
+  return entity.type === PLAYER_TYPE && playerHasCards(entity);
+});
+
+ctx.registerQuery(CardQueryNames.DrawPileCards, function (entity) {
+  return (
+    entity.type === CARD_TYPE && entity.card.status === CardStatus.DrawPile
+  );
 });

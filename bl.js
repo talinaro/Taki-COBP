@@ -29,14 +29,91 @@
  *          - it reverses the effects of the +3 card and makes the player who placed the +3 to draw 3 cards instead
  */
 
-ctx.bthread("print all cards", CardQueryNames.AllCards, function (e) {
-  bp.log.info(e);
+ctx.bthread("print all cards", CardQueryNames.AllCards, function (cardEntity) {
+  bp.log.info(cardEntity);
 });
 
-ctx.bthread("print all players", PlayerQueryNames.AllPlayers, function (e) {
-  bp.log.info(e);
-});
+ctx.bthread(
+  "print all players",
+  PlayerQueryNames.AllPlayers,
+  function (playerEntity) {
+    bp.log.info(playerEntity);
+  }
+);
 
+ctx.bthread(
+  "generate all draw cards events",
+  CardQueryNames.DrawPileCards,
+  function (cardEntity) {
+    let drawCardEvents = PlayersIndexes.map((i) =>
+      ctx.getEntityById(playerId(i))
+    ).map((playerEntity) => createDrawCardEvent(playerEntity, cardEntity));
+
+    sync({ request: drawCardEvents });
+  }
+);
+
+bthread(
+  "test that all the events from 'generate all draw cards events' are generated",
+  function () {
+    for (let i = 0; i < 116; i++) {
+      let drawCardEvt = sync({ waitFor: DrawPileCardsES });
+      bp.log.info(
+        `Drawn card ${drawCardEvt.data.card.id} by ${drawCardEvt.data.player.id}`
+      );
+    }
+  }
+);
+
+// Requirement: The cards are shuffled and each player receives eight
+// ctx.bthread(
+//   "deal 8 cards to player",
+//   PlayerQueryNames.AllPlayers,
+//   function (playerEntity) {
+//     let card;
+//     while (playerEntity.cards.length < INIT_PLAYER_CARDS_NUM) {
+//       card = sync({});
+//     }
+//   }
+// );
+
+/*
+ctx.bthread(
+  "generate all possible moves when player put his cards",
+  PlayerQueryNames.WithCards,
+  function (playerEntity) {
+    let playerCards = playerEntity.cards;
+    // TODO: generate multi moves that strat with `card`
+    let moves = playerCards.map((card) => createMoveEvent([card])); // only single cards meanwhile
+    sync({ request: moves });
+  }
+);
+
+ctx.bthread(
+  "generate all possible draw cards moves",
+  CardQueryNames.DrawPileCards,
+  function (cardEntity) {
+    let drawCard = cardEntity.card;
+    sync({ request: createMoveEvent([drawCard]) }); // TODO: maybe draw event is different from card event?
+  }
+);
+
+// Requirement:
+// The players play one after another in clockwise order (index-growing).
+// The direction may change if any player puts the "change direction" card.
+// A player can finish his cards and leave the game, but the other players will 0continue to play.
 bthread("define players order", function () {
-  // TODO: how?
+  let currentPlayerIndex = 0;
+
+  while (true) {
+    let direction = ctx.getEntityById(DIRECTION_ID).direction;
+    let move = sync({
+      waitFor: SpecificPlayerMovesES(currentPlayerIndex),
+      block: AllRestPlayersMovesES(currentPlayerIndex),
+    });
+    bp.log.info(move);
+
+    currentPlayerIndex = getNextPlayerIndex(currentPlayerIndex, direction);
+  }
 });
+*/

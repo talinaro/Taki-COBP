@@ -23,7 +23,7 @@ const CardNames = {
   BreakPlus3: "break +3",
 };
 
-const CardStatuses = {
+const CardStatus = {
   DrawPile: "draw pile",
   DiscardPile: "discard pile",
   PlayerHand: "player hand",
@@ -33,4 +33,5 @@ const CardStatuses = {
 
 const CardQueryNames = {
   AllCards: "all cards",
+  DrawPileCards: "draw pile cards",
 };
