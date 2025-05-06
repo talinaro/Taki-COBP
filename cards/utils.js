@@ -1,13 +1,5 @@
 function isCardInList(card, cardsList) {
-  return (
-    cardsList &&
-    cardsList.some(
-      (currCard) =>
-        currCard.name === card.name &&
-        currCard.color === card.color &&
-        currCard.status === card.status
-    )
-  );
+  return cardsList && cardsList.some((currCard) => currCard.id === card.id);
 }
 
 function isSubCardsList(subCardsList, cardsList) {

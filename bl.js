@@ -45,18 +45,19 @@ ctx.bthread(
   "generate all draw cards events",
   CardQueryNames.DrawPileCards,
   function (cardEntity) {
-    let drawCardEvents = PlayersIndexes.map((i) =>
+    // create DrawCard event for each card in draw pile with every player
+    let playersEntities = PlayersIndexes.map((i) =>
       ctx.getEntityById(playerId(i))
-    ).map((playerEntity) => createDrawCardEvent(playerEntity, cardEntity));
-
-    sync({ request: drawCardEvents });
+    );
+    for (let playerEntity of playersEntities)
+      sync({ request: createDrawCardEvent(playerEntity, cardEntity) });
   }
 );
 
 bthread(
   "test that all the events from 'generate all draw cards events' are generated",
   function () {
-    for (let i = 0; i < 116; i++) {
+    for (let i = 0; i < 500; i++) {
       let drawCardEvt = sync({ waitFor: DrawPileCardsES });
       bp.log.info(
         `Drawn card ${drawCardEvt.data.card.id} by ${drawCardEvt.data.player.id}`

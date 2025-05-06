@@ -12,24 +12,24 @@ function createDrawCardEvent(player, card) {
 
 /////////////// Event Sets ///////////////
 
-const SpecificPlayerMovesES = (playerIndex) =>
-  bp.EventSet("specific-player-moves", function (e) {
-    if (e.name !== EventNames.Move) return false;
-
-    const moveCards = e.data.cards;
-    const playerCards = ctx.getEntityById(playerId(playerIndex)).cards;
-    return isSubCardsList(moveCards, playerCards);
-  });
-
-const AllRestPlayersMovesES = (playerIndex) =>
-  bp.EventSet("specific-player-moves", function (e) {
-    if (e.name !== EventNames.Move) return false;
-
-    const moveCards = e.data.cards;
-    const playerCards = ctx.getEntityById(playerId(playerIndex)).cards;
-    return !isSubCardsList(moveCards, playerCards);
-  });
-
 const DrawPileCardsES = bp.EventSet("draw-pile-cards", function (e) {
   return e.name === EventNames.DrawCard;
 });
+
+// const SpecificPlayerMovesES = (playerIndex) =>
+//   bp.EventSet("specific-player-moves", function (e) {
+//     if (e.name !== EventNames.Move) return false;
+
+//     const moveCards = e.data.cards;
+//     const playerCards = ctx.getEntityById(playerId(playerIndex)).cards;
+//     return isSubCardsList(moveCards, playerCards);
+//   });
+
+// const AllRestPlayersMovesES = (playerIndex) =>
+//   bp.EventSet("specific-player-moves", function (e) {
+//     if (e.name !== EventNames.Move) return false;
+
+//     const moveCards = e.data.cards;
+//     const playerCards = ctx.getEntityById(playerId(playerIndex)).cards;
+//     return !isSubCardsList(moveCards, playerCards);
+//   });

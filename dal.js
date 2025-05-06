@@ -45,14 +45,14 @@ const AllCards = flat(
       return flat(
         Object.values(CardColors).map((color) =>
           Array.from({ length: card.amount }, () =>
-            Card(card.name, color, CardStatus.DrawPile)
+            Card(card.name, color, CardStatus.DrawPile, undefined)
           )
         )
       );
 
     // uncolored cards
     return Array.from({ length: card.amount }, () =>
-      Card(card.name, undefined, CardStatus.DrawPile)
+      Card(card.name, undefined, CardStatus.DrawPile, undefined)
     );
   })
 );
@@ -73,7 +73,7 @@ const CardEntities = AllCards.map((card, i) =>
   ctx.Entity(cardId(card.name, card.color, i), CARD_TYPE, { card })
 );
 
-const PlayerEntities = Array.from({ length: PlayersNumber }, (_, i) =>
+const PlayerEntities = PlayersIndexes.map((i) =>
   ctx.Entity(playerId(i), PLAYER_TYPE, Player(i))
 );
 
@@ -109,12 +109,26 @@ ctx.registerQuery(PlayerQueryNames.AllPlayers, function (entity) {
   return entity.type === PLAYER_TYPE;
 });
 
-ctx.registerQuery(PlayerQueryNames.WithCards, function (entity) {
-  return entity.type === PLAYER_TYPE && playerHasCards(entity);
-});
-
 ctx.registerQuery(CardQueryNames.DrawPileCards, function (entity) {
   return (
     entity.type === CARD_TYPE && entity.card.status === CardStatus.DrawPile
   );
+});
+
+// ctx.registerQuery(PlayerQueryNames.WithCards, function (entity) {
+//   return entity.type === PLAYER_TYPE && playerHasCards(entity);
+// });
+
+/////////////// Effects ///////////////
+
+ctx.registerEffect(EventNames.DrawCard, function (drawCardEvtData) {
+  let player = drawCardEvtData.player;
+  let card = drawCardEvtData.card;
+
+  bp.log.info(`Envoke effect of ${player.id} drawing ${card.id}`);
+
+  card.card.status = CardStatus.PlayerHand;
+  card.card.player = player;
+
+  bp.log.info(card); // TODO: remove
 });
