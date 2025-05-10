@@ -34,4 +34,6 @@ const CardStatus = {
 const CardQueryNames = {
   AllCards: "all cards",
   DrawPileCards: "draw pile cards",
+  PlayerHandCards: "player hand cards",
+  DiscardPileCards: "discard pile cards",
 };

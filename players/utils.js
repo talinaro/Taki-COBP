@@ -5,3 +5,7 @@ function getNextPlayerIndex(currentPlayerIndex, direction) {
    */
   return (currentPlayerIndex + direction + PlayersNumber) % PlayersNumber;
 }
+
+function playerHasCards(player) {
+  return player.player.cards.length > 0;
+}

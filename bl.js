@@ -45,38 +45,55 @@ ctx.bthread(
   "generate all draw cards events",
   CardQueryNames.DrawPileCards,
   function (cardEntity) {
-    // create DrawCard event for each card in draw pile with every player
     let playersEntities = PlayersIndexes.map((i) =>
       ctx.getEntityById(playerId(i))
     );
+
+    // create DrawCard event for each card in draw pile with every player
     for (let playerEntity of playersEntities)
       sync({ request: createDrawCardEvent(playerEntity, cardEntity) });
   }
 );
 
-bthread(
-  "test that all the events from 'generate all draw cards events' are generated",
-  function () {
-    for (let i = 0; i < 500; i++) {
-      let drawCardEvt = sync({ waitFor: DrawPileCardsES });
-      bp.log.info(
-        `Drawn card ${drawCardEvt.data.card.id} by ${drawCardEvt.data.player.id}`
-      );
-    }
-  }
-);
-
-// Requirement: The cards are shuffled and each player receives eight
-// ctx.bthread(
-//   "deal 8 cards to player",
-//   PlayerQueryNames.AllPlayers,
-//   function (playerEntity) {
-//     let card;
-//     while (playerEntity.cards.length < INIT_PLAYER_CARDS_NUM) {
-//       card = sync({});
+// bthread(
+//   "test that all the events from 'generate all draw cards events' are generated",
+//   function () {
+//     for (let i = 0; i < 500; i++) {
+//       let drawCardEvt = sync({ waitFor: DrawCardsES });
+//       bp.log.info(
+//         `Drawn card ${drawCardEvt.data.card.id} by ${drawCardEvt.data.player.id}`
+//       );
 //     }
 //   }
 // );
+
+// Requirement: The cards are shuffled and each player receives eight
+ctx.bthread(
+  "deal 8 cards to player",
+  PlayerQueryNames.AllPlayers,
+  function (playerEntity) {
+    while (playerEntity.player.cards.length < INIT_PLAYER_CARDS_NUM)
+      sync({ waitFor: DrawCardByPlayerES(playerEntity) });
+
+    while (true) sync({ block: DrawCardByPlayerES(playerEntity) });
+  }
+);
+
+ctx.bthread(
+  "avoid other players from trying to draw an already drawn cards",
+  CardQueryNames.PlayerHandCards,
+  function (cardEntity) {
+    let playersEntities = PlayersIndexes.map((i) =>
+      ctx.getEntityById(playerId(i))
+    );
+
+    for (let playerEntity of playersEntities)
+      if (!playerEntity.player.cards.includes(cardEntity))
+        sync({
+          block: DrawCardByOtherPlayersES(playerEntity, cardEntity),
+        });
+  }
+);
 
 /*
 ctx.bthread(

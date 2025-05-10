@@ -1,5 +1,5 @@
 const playerId = (i) => `Player#${i}`;
 
 function Player(i) {
-  return { i };
+  return { i, cards: [] };
 }
