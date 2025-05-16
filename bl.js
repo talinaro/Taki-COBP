@@ -45,24 +45,20 @@ ctx.bthread(
   "generate all draw cards events",
   CardQueryNames.DrawPileCards,
   function (cardEntity) {
-    let playersEntities = PlayersIndexes.map((i) =>
-      ctx.getEntityById(playerId(i))
-    );
-
-    // create DrawCard event for each card in draw pile with every player
-    for (let playerEntity of playersEntities)
-      sync({ request: createDrawCardEvent(playerEntity, cardEntity) });
+    sync({ request: createDrawableCardEvent(cardEntity) });
   }
 );
+
+bthread("disable all events that became irrelevant", function () {
+  while (true) sync({ block: DeprecatedDrawableCardsES });
+});
 
 // bthread(
 //   "test that all the events from 'generate all draw cards events' are generated",
 //   function () {
 //     for (let i = 0; i < 500; i++) {
-//       let drawCardEvt = sync({ waitFor: DrawCardsES });
-//       bp.log.info(
-//         `Drawn card ${drawCardEvt.data.card.id} by ${drawCardEvt.data.player.id}`
-//       );
+//       let drawableCardEvt = sync({ waitFor: DrawableCardsES() });
+//       bp.log.info(`Drawable card ${drawableCardEvt.data.card.id}`);
 //     }
 //   }
 // );
@@ -72,28 +68,34 @@ ctx.bthread(
   "deal 8 cards to player",
   PlayerQueryNames.AllPlayers,
   function (playerEntity) {
-    while (playerEntity.player.cards.length < INIT_PLAYER_CARDS_NUM)
-      sync({ waitFor: DrawCardByPlayerES(playerEntity) });
+    while (playerEntity.player.cards.length < INIT_PLAYER_CARDS_NUM) {
+      let drawableCardEvt = sync({ waitFor: DrawableCardsES });
+      sync({
+        request: createMoveDrawCardEvent(
+          drawableCardEvt.data.card,
+          playerEntity
+        ),
+      });
 
-    while (true) sync({ block: DrawCardByPlayerES(playerEntity) });
-  }
-);
+      bp.log.info(
+        `${playerEntity.id} has ${playerEntity.player.cards.length} cards`
+      );
+    }
 
-ctx.bthread(
-  "avoid other players from trying to draw an already drawn cards",
-  CardQueryNames.PlayerHandCards,
-  function (cardEntity) {
-    let playersEntities = PlayersIndexes.map((i) =>
-      ctx.getEntityById(playerId(i))
+    bp.log.info(
+      `${playerEntity.id} finished drawing cards: ${playerEntity.player.cards.length} out of ${INIT_PLAYER_CARDS_NUM}`
     );
-
-    for (let playerEntity of playersEntities)
-      if (!playerEntity.player.cards.includes(cardEntity))
-        sync({
-          block: DrawCardByOtherPlayersES(playerEntity, cardEntity),
-        });
   }
 );
+
+// Requirement: draw one card from the top of the draw pile to form the discard pile (the top card of the discard pile is the leading card)
+bthread("init leading card", function () {
+  let leadingCardEntity = ctx.getEntityById(LEADING_CARD_ID);
+  if (leadingCardEntity.card === undefined) {
+    let drawableCardEvt = sync({ waitFor: DrawableCardsES });
+    sync({ request: createDrawLeadingCardEvent(drawableCardEvt.data.card) });
+  }
+});
 
 /*
 ctx.bthread(

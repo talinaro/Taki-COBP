@@ -7,7 +7,7 @@
  * - change color - 4 (uncolored)
  * - super taki, king, +3, break +3 - 2 of each (uncolored)
  * define number of players
- * define the playing order     // TODO: should be bthread?
+ * define the playing order
  * deal 8 cards to each player
  * rest of the cards are the draw pile
  * draw one card from the top of the draw pile to form the discard pile (the top card of the discard pile is the leading card)
@@ -83,6 +83,8 @@ ctx.populateContext(
     CardEntities,
     // players
     PlayerEntities,
+    // leading card
+    ctx.Entity(LEADING_CARD_ID, LEADING_CARD_TYPE, { card: undefined }),
     // turns direction (+1/-1) - default +1
     ctx.Entity(DIRECTION_ID, DIRECTION_TYPE, { direction: 1 })
   )
@@ -133,15 +135,27 @@ ctx.registerQuery(PlayerQueryNames.WithCards, function (entity) {
 
 /////////////// Effects ///////////////
 
-ctx.registerEffect(EventNames.DrawCard, function (drawCardEvtData) {
-  let player = drawCardEvtData.player;
+ctx.registerEffect(MoveEventNames.DrawCard, function (drawCardEvtData) {
   let card = drawCardEvtData.card;
+  let player = drawCardEvtData.player;
 
-  bp.log.info(`Envoke effect of ${player.id} drawing ${card.id}`);
+  bp.log.info(drawCardEvtData);
+  // bp.log.info(`Envoke effect of ${player.id} drawing ${card.id}`);
 
   card.card.status = CardStatus.PlayerHand;
   player.player.cards.push(card);
-
-  bp.log.info(card); // TODO: remove
-  bp.log.info(player); // TODO: remove
 });
+
+ctx.registerEffect(
+  EventNames.DrawLeadingCard,
+  function (drawLeadingCardEvtData) {
+    let drawnCard = drawLeadingCardEvtData.card;
+    drawnCard.card.status = CardStatus.DiscardPile;
+
+    let leadingCardEntity = ctx.getEntityById(LEADING_CARD_ID);
+    leadingCardEntity.card = drawnCard;
+
+    bp.log.info(`Leading card:`);
+    bp.log.info(leadingCardEntity);
+  }
+);
