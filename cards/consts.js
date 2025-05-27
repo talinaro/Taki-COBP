@@ -1,4 +1,7 @@
-const CARD_TYPE = "card";
+const CardTypes = {
+  Any: "any card",
+  Drawable: "drawable card",
+};
 
 const CardColors = {
   Red: "red",
@@ -23,17 +26,9 @@ const CardNames = {
   BreakPlus3: "break +3",
 };
 
-const CardStatus = {
-  DrawPile: "draw pile",
-  DiscardPile: "discard pile",
-  PlayerHand: "player hand",
-};
-
 /////////////// Query Names ///////////////
 
 const CardQueryNames = {
-  AllCards: "all cards",
-  DrawPileCards: "draw pile cards",
-  PlayerHandCards: "player hand cards",
-  DiscardPileCards: "discard pile cards",
+  AllCards: "all cards query",
+  AllDrawableCards: "all drawable cards query",
 };

@@ -44,15 +44,13 @@ const AllCards = flat(
     if (card.isColored)
       return flat(
         Object.values(CardColors).map((color) =>
-          Array.from({ length: card.amount }, () =>
-            Card(card.name, color, CardStatus.DrawPile)
-          )
+          Array.from({ length: card.amount }, () => Card(card.name, color))
         )
       );
 
     // uncolored cards
     return Array.from({ length: card.amount }, () =>
-      Card(card.name, undefined, CardStatus.DrawPile)
+      Card(card.name, undefined)
     );
   })
 );
@@ -70,11 +68,18 @@ const AllCards = flat(
  */
 
 const CardEntities = AllCards.map((card, i) =>
-  ctx.Entity(cardId(card.name, card.color, i), CARD_TYPE, { card })
+  ctx.Entity(CardId(card.name, card.color, i), CardTypes.Any, { card })
+);
+
+// const CardEntitiesIds = new Set(CardEntities.map((card) => card.id));
+const InitDrawableCardsEntities = CardEntities.map((cardEntity) =>
+  ctx.Entity(DrawableCardId(cardEntity.id), CardTypes.Drawable, {
+    cardId: cardEntity.id,
+  })
 );
 
 const PlayerEntities = PlayersIndexes.map((i) =>
-  ctx.Entity(playerId(i), PLAYER_TYPE, { player: Player(i) })
+  ctx.Entity(PlayerId(i), PLAYER_TYPE, { cards: new Set() })
 );
 
 ctx.populateContext(
@@ -83,10 +88,13 @@ ctx.populateContext(
     CardEntities,
     // players
     PlayerEntities,
+    // draw pile (consists of all the cards on init)
+    // ctx.Entity(DRAW_PILE_ID, DRAW_PILE_TYPE, { cards: CardEntitiesIds }),
+    InitDrawableCardsEntities,
     // leading card
-    ctx.Entity(LEADING_CARD_ID, LEADING_CARD_TYPE, { card: undefined }),
+    ctx.Entity(LEADING_CARD_ID, LEADING_CARD_TYPE, { card: undefined })
     // turns direction (+1/-1) - default +1
-    ctx.Entity(DIRECTION_ID, DIRECTION_TYPE, { direction: 1 })
+    // ctx.Entity(DIRECTION_ID, DIRECTION_TYPE, { direction: 1 })
   )
 );
 
@@ -104,58 +112,69 @@ ctx.populateContext(
  */
 
 ctx.registerQuery(CardQueryNames.AllCards, function (entity) {
-  return entity.type === CARD_TYPE;
+  return entity.type === CardTypes.Any;
+});
+
+ctx.registerQuery(CardQueryNames.AllDrawableCards, function (entity) {
+  return entity.type === CardTypes.Drawable;
 });
 
 ctx.registerQuery(PlayerQueryNames.AllPlayers, function (entity) {
   return entity.type === PLAYER_TYPE;
 });
 
-ctx.registerQuery(CardQueryNames.DrawPileCards, function (entity) {
-  return (
-    entity.type === CARD_TYPE && entity.card.status === CardStatus.DrawPile
-  );
-});
-
-ctx.registerQuery(CardQueryNames.PlayerHandCards, function (entity) {
-  return (
-    entity.type === CARD_TYPE && entity.card.status === CardStatus.PlayerHand
-  );
-});
-
-ctx.registerQuery(CardQueryNames.DiscardPileCards, function (entity) {
-  return (
-    entity.type === CARD_TYPE && entity.card.status === CardStatus.DiscardPile
-  );
-});
-
-ctx.registerQuery(PlayerQueryNames.WithCards, function (entity) {
-  return entity.type === PLAYER_TYPE && playerHasCards(entity);
-});
+// ctx.registerQuery(PlayerQueryNames.WithCards, function (entity) {
+//   return entity.type === PLAYER_TYPE && playerHasCards(entity);
+// });
 
 /////////////// Effects ///////////////
 
-ctx.registerEffect(MoveEventNames.DrawCard, function (drawCardEvtData) {
-  let card = drawCardEvtData.card;
-  let player = drawCardEvtData.player;
-
-  bp.log.info(drawCardEvtData);
-  // bp.log.info(`Envoke effect of ${player.id} drawing ${card.id}`);
-
-  card.card.status = CardStatus.PlayerHand;
-  player.player.cards.push(card);
-});
-
 ctx.registerEffect(
-  EventNames.DrawLeadingCard,
-  function (drawLeadingCardEvtData) {
-    let drawnCard = drawLeadingCardEvtData.card;
-    drawnCard.card.status = CardStatus.DiscardPile;
+  EventNames.DealCardToPlayer,
+  function (dealCardToPlayerEvtData) {
+    let playerId = dealCardToPlayerEvtData.playerId;
 
-    let leadingCardEntity = ctx.getEntityById(LEADING_CARD_ID);
-    leadingCardEntity.card = drawnCard;
+    let drawableCardId = dealCardToPlayerEvtData.drawableCardId;
+    let drawableCardEntity = ctx.getEntityById(drawableCardId);
+    let cardId = drawableCardEntity.cardId;
 
-    bp.log.info(`Leading card:`);
-    bp.log.info(leadingCardEntity);
+    bp.log.info(`Envoke effect of deal ${cardId} to ${playerId}`);
+
+    // add card to player's hand
+    let player = ctx.getEntityById(playerId);
+    player.cards.add(cardId);
+
+    // remove card from the draw pile
+    // let drawPile = ctx.getEntityById(DRAW_PILE_ID);
+    // drawPile.cards.delete(cardId);
+    ctx.removeEntity(drawableCardEntity);
+
+    bp.log.info(`${playerId} has ${player.cards.size} cards`);
+    bp.log.info(player);
   }
 );
+
+// ctx.registerEffect(MoveEventNames.DrawCard, function (drawCardEvtData) {
+//   let card = drawCardEvtData.card;
+//   let player = drawCardEvtData.player;
+
+//   bp.log.info(drawCardEvtData);
+//   // bp.log.info(`Envoke effect of ${player.id} drawing ${card.id}`);
+
+//   card.card.status = CardStatus.PlayerHand;
+//   player.player.cards.push(card);
+// });
+
+// ctx.registerEffect(
+//   EventNames.DrawLeadingCard,
+//   function (drawLeadingCardEvtData) {
+//     let drawnCard = drawLeadingCardEvtData.card;
+//     drawnCard.card.status = CardStatus.DiscardPile;
+
+//     let leadingCardEntity = ctx.getEntityById(LEADING_CARD_ID);
+//     leadingCardEntity.card = drawnCard;
+
+//     bp.log.info(`Leading card:`);
+//     bp.log.info(leadingCardEntity);
+//   }
+// );

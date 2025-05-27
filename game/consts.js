@@ -1,17 +1,26 @@
+const DRAW_PILE_ID = "draw pile"; // TODO: remove?
+const DRAW_PILE_TYPE = "draw pile"; // TODO: remove?
+
+const LEADING_CARD_ID = "leading card"; // TODO: remove?
+const LEADING_CARD_TYPE = "leading card"; // TODO: remove?
+
 const DIRECTION_ID = "directon";
 const DIRECTION_TYPE = "directon";
 
-const LEADING_CARD_ID = "leading card";
-const LEADING_CARD_TYPE = "leading card";
+/////////////// Event Names ///////////////
 
 const EventNames = {
-  Step: "step",
-  Move: "move",
-  Win: "win",
-  DrawableCard: "drawable card",
-  DrawLeadingCard: "draw leading card",
+  DrawableCard: "drawable card event",
+  RequestToDrawCard: "request to draw card event",
+  DealCardToPlayer: "deal card to player event",
+  // DrawLeadingCard: "draw leading card event",
+  // Step: "step event",
+  // Move: "move event",
+  // Win: "win event",
 };
 
-const MoveEventNames = {
-  DrawCard: "draw card move",
+/////////////// Query Names ///////////////
+
+const GameQueryNames = {
+  DrawPile: "draw pile query",
 };

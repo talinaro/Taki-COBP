@@ -41,23 +41,27 @@ ctx.bthread(
   }
 );
 
+// bthread("generate all drawable card events", function () {
+//   let drawPile = ctx.getEntityById(DRAW_PILE_ID).cards;
+
+//   for (let card of drawPile) {
+//     sync({ request: createDrawableCardEvent(card) });  // TODO: should change to card.id param??
+//   }
+// });
+
 ctx.bthread(
-  "generate all draw cards events",
-  CardQueryNames.DrawPileCards,
-  function (cardEntity) {
-    sync({ request: createDrawableCardEvent(cardEntity) });
+  "generate all drawable card events",
+  CardQueryNames.AllDrawableCards,
+  function (drawableCardEntity) {
+    sync({ request: createDrawableCardEvent(drawableCardEntity.id) });
   }
 );
 
-bthread("disable all events that became irrelevant", function () {
-  while (true) sync({ block: DeprecatedDrawableCardsES });
-});
-
 // bthread(
-//   "test that all the events from 'generate all draw cards events' are generated",
+//   "test that all the events from 'generate all drawable card events' are generated",
 //   function () {
 //     for (let i = 0; i < 500; i++) {
-//       let drawableCardEvt = sync({ waitFor: DrawableCardsES() });
+//       let drawableCardEvt = sync({ waitFor: DrawableCardsES });
 //       bp.log.info(`Drawable card ${drawableCardEvt.data.card.id}`);
 //     }
 //   }
@@ -68,34 +72,54 @@ ctx.bthread(
   "deal 8 cards to player",
   PlayerQueryNames.AllPlayers,
   function (playerEntity) {
-    while (playerEntity.player.cards.length < INIT_PLAYER_CARDS_NUM) {
-      let drawableCardEvt = sync({ waitFor: DrawableCardsES });
-      sync({
-        request: createMoveDrawCardEvent(
-          drawableCardEvt.data.card,
-          playerEntity
-        ),
-      });
-
-      bp.log.info(
-        `${playerEntity.id} has ${playerEntity.player.cards.length} cards`
-      );
+    for (let i = 0; i < INIT_PLAYER_CARDS_NUM; i++) {
+      sync({ request: createRequestToDrawCardEvent(playerEntity.id) });
     }
-
-    bp.log.info(
-      `${playerEntity.id} finished drawing cards: ${playerEntity.player.cards.length} out of ${INIT_PLAYER_CARDS_NUM}`
-    );
   }
 );
 
-// Requirement: draw one card from the top of the draw pile to form the discard pile (the top card of the discard pile is the leading card)
-bthread("init leading card", function () {
-  let leadingCardEntity = ctx.getEntityById(LEADING_CARD_ID);
-  if (leadingCardEntity.card === undefined) {
-    let drawableCardEvt = sync({ waitFor: DrawableCardsES });
-    sync({ request: createDrawLeadingCardEvent(drawableCardEvt.data.card) });
+bthread("dealer", function () {
+  let drawnCardsIds = new Set();
+  while (true) {
+    let drawingPlayerId = sync({ waitFor: DrawCardRequestES }).data.playerId;
+    bp.log.info(`dealer -> waitFor player -> ${drawingPlayerId}`);
+
+    // let drawPile = ctx.getEntityById(DRAW_PILE_ID).cards;
+    // bp.log.info(`Draw pile:`);
+    // bp.log.info(drawPile);
+
+    // // select a drawable card from the draw pile
+    // let drawableCardId = -1;
+    // do {
+    //   drawableCardId = sync({ waitFor: DrawableCardsES }).data.cardId;
+    // } while (!drawPile.has(drawableCardId));
+
+    // select a drawable card from the draw pile
+    let drawableCardId = undefined;
+    do {
+      drawableCardId = sync({ waitFor: DrawableCardsES }).data.drawableCardId;
+      bp.log.info(`Chosen ${drawableCardId} for ${drawingPlayerId}`);
+    } while (drawnCardsIds.has(drawableCardId) || drawableCardId === undefined);
+    drawnCardsIds.add(drawableCardId);
+
+    bp.log.info(`dealer -> waitFor card -> ${drawableCardId}`);
+    bp.log.info(`All drawn cards:`);
+    bp.log.info(drawnCardsIds);
+
+    sync({
+      request: createDealCardToPlayerEvent(drawableCardId, drawingPlayerId),
+    });
   }
 });
+
+// Requirement: draw one card from the top of the draw pile to form the discard pile (the top card of the discard pile is the leading card)
+// bthread("init leading card", function () {
+//   let leadingCardEntity = ctx.getEntityById(LEADING_CARD_ID);
+//   if (leadingCardEntity.card === undefined) {
+//     let drawableCardEvt = sync({ waitFor: DrawableCardsES });
+//     sync({ request: createDrawLeadingCardEvent(drawableCardEvt.data.card) });
+//   }
+// });
 
 /*
 ctx.bthread(

@@ -1,5 +1,1 @@
-const playerId = (i) => `Player#${i}`;
-
-function Player(i) {
-  return { i, cards: [] };
-}
+const PlayerId = (i) => `Player#${i}`;

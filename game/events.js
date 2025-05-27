@@ -1,45 +1,43 @@
-function createMoveEvent(cards) {
-  return Event(EventNames.Move, { cards });
+// function createMoveEvent(cards) {
+//   return Event(EventNames.Move, { cards });
+// }
+
+// function createStepEvent(card) {
+//   return Event(EventNames.Step, { card });
+// }
+
+function createDrawableCardEvent(drawableCardId) {
+  return Event(EventNames.DrawableCard, { drawableCardId });
 }
 
-function createStepEvent(card) {
-  return Event(EventNames.Step, { card });
+function createRequestToDrawCardEvent(playerId) {
+  return Event(EventNames.RequestToDrawCard, { playerId });
 }
 
-function createDrawableCardEvent(card) {
-  return Event(EventNames.DrawableCard, { card });
+function createDealCardToPlayerEvent(drawableCardId, playerId) {
+  return Event(EventNames.DealCardToPlayer, { drawableCardId, playerId });
 }
 
-function createMoveDrawCardEvent(card, player) {
-  return Event(MoveEventNames.DrawCard, { card, player });
-}
-
-function createDrawLeadingCardEvent(card) {
-  return Event(EventNames.DrawLeadingCard, { card });
-}
+// function createDrawLeadingCardEvent(card) {
+//   return Event(EventNames.DrawLeadingCard, { card });
+// }
 
 /////////////// Event Sets ///////////////
 
-const DrawableCardsES = bp.EventSet("drawable cards", function (e) {
-  return e.name === EventNames.DrawableCard;
-
-  // if (e.name === EventNames.DrawableCard) {
-  //   bp.log.info(`Drawable event data: `);
-  //   bp.log.info(e.data);
-  //   return true;
-  // }
-  // return false;
-});
-
-const DeprecatedDrawableCardsES = bp.EventSet(
-  "deprecated drawable cards",
+const DrawCardRequestES = bp.EventSet(
+  "draw card requests eventset",
   function (e) {
-    return (
-      e.name === EventNames.DrawableCard &&
-      e.data.card.card.status !== CardStatus.DrawPile
-    );
+    return e.name === EventNames.RequestToDrawCard;
   }
 );
+
+const DrawableCardsES = bp.EventSet("drawable cards eventset", function (e) {
+  return e.name === EventNames.DrawableCard;
+});
+
+const DealCardES = bp.EventSet("deal card eventset", function (e) {
+  return e.name === EventNames.DealCardToPlayer;
+});
 
 // TODO: remove
 // const DrawCardByPlayerES = (player) =>
@@ -69,7 +67,7 @@ const DeprecatedDrawableCardsES = bp.EventSet(
 //     if (e.name !== EventNames.Move) return false;
 
 //     const moveCards = e.data.cards;
-//     const playerCards = ctx.getEntityById(playerId(playerIndex)).cards;
+//     const playerCards = ctx.getEntityById(PlayerId(playerIndex)).cards;
 //     return isSubCardsList(moveCards, playerCards);
 //   });
 
@@ -78,6 +76,6 @@ const DeprecatedDrawableCardsES = bp.EventSet(
 //     if (e.name !== EventNames.Move) return false;
 
 //     const moveCards = e.data.cards;
-//     const playerCards = ctx.getEntityById(playerId(playerIndex)).cards;
+//     const playerCards = ctx.getEntityById(PlayerId(playerIndex)).cards;
 //     return !isSubCardsList(moveCards, playerCards);
 //   });
