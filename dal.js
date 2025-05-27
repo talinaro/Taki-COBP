@@ -89,7 +89,6 @@ ctx.populateContext(
     // players
     PlayerEntities,
     // draw pile (consists of all the cards on init)
-    // ctx.Entity(DRAW_PILE_ID, DRAW_PILE_TYPE, { cards: CardEntitiesIds }),
     InitDrawableCardsEntities,
     // leading card
     ctx.Entity(LEADING_CARD_ID, LEADING_CARD_TYPE, { card: undefined })

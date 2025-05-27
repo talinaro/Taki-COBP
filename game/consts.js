@@ -1,6 +1,3 @@
-const DRAW_PILE_ID = "draw pile"; // TODO: remove?
-const DRAW_PILE_TYPE = "draw pile"; // TODO: remove?
-
 const LEADING_CARD_ID = "leading card"; // TODO: remove?
 const LEADING_CARD_TYPE = "leading card"; // TODO: remove?
 
