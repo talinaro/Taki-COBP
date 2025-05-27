@@ -41,70 +41,38 @@ ctx.bthread(
   }
 );
 
-// bthread("generate all drawable card events", function () {
-//   let drawPile = ctx.getEntityById(DRAW_PILE_ID).cards;
-
-//   for (let card of drawPile) {
-//     sync({ request: createDrawableCardEvent(card) });  // TODO: should change to card.id param??
-//   }
-// });
-
+// Requirement: The cards are shuffled
 ctx.bthread(
   "generate all drawable card events",
   CardQueryNames.AllDrawableCards,
   function (drawableCardEntity) {
-    sync({ request: createDrawableCardEvent(drawableCardEntity.id) });
+    while (true)
+      sync({ request: createDrawableCardEvent(drawableCardEntity.id) });
   }
 );
 
-// bthread(
-//   "test that all the events from 'generate all drawable card events' are generated",
-//   function () {
-//     for (let i = 0; i < 500; i++) {
-//       let drawableCardEvt = sync({ waitFor: DrawableCardsES });
-//       bp.log.info(`Drawable card ${drawableCardEvt.data.card.id}`);
-//     }
-//   }
-// );
-
-// Requirement: The cards are shuffled and each player receives eight
+// Requirement: Each player receives eight cards
 ctx.bthread(
   "deal 8 cards to player",
   PlayerQueryNames.AllPlayers,
   function (playerEntity) {
-    for (let i = 0; i < INIT_PLAYER_CARDS_NUM; i++) {
+    // TODO: not perfect condition - sometimes playeres get 1 extra card when another event requested
+    while (playerEntity.cards.size < INIT_PLAYER_CARDS_NUM) {
       sync({ request: createRequestToDrawCardEvent(playerEntity.id) });
     }
   }
 );
 
 bthread("dealer", function () {
-  let drawnCardsIds = new Set();
   while (true) {
-    let drawingPlayerId = sync({ waitFor: DrawCardRequestES }).data.playerId;
-    bp.log.info(`dealer -> waitFor player -> ${drawingPlayerId}`);
+    let drawingPlayerId = sync({
+      waitFor: DrawCardRequestES,
+      block: DrawableCardsES,
+    }).data.playerId;
 
-    // let drawPile = ctx.getEntityById(DRAW_PILE_ID).cards;
-    // bp.log.info(`Draw pile:`);
-    // bp.log.info(drawPile);
+    let drawableCardId = sync({ waitFor: DrawableCardsES }).data.drawableCardId;
 
-    // // select a drawable card from the draw pile
-    // let drawableCardId = -1;
-    // do {
-    //   drawableCardId = sync({ waitFor: DrawableCardsES }).data.cardId;
-    // } while (!drawPile.has(drawableCardId));
-
-    // select a drawable card from the draw pile
-    let drawableCardId = undefined;
-    do {
-      drawableCardId = sync({ waitFor: DrawableCardsES }).data.drawableCardId;
-      bp.log.info(`Chosen ${drawableCardId} for ${drawingPlayerId}`);
-    } while (drawnCardsIds.has(drawableCardId) || drawableCardId === undefined);
-    drawnCardsIds.add(drawableCardId);
-
-    bp.log.info(`dealer -> waitFor card -> ${drawableCardId}`);
-    bp.log.info(`All drawn cards:`);
-    bp.log.info(drawnCardsIds);
+    bp.log.info(`Chosen ${drawableCardId} for ${drawingPlayerId}`);
 
     sync({
       request: createDealCardToPlayerEvent(drawableCardId, drawingPlayerId),
