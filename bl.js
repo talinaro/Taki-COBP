@@ -65,29 +65,27 @@ ctx.bthread(
 
 bthread("dealer", function () {
   while (true) {
-    let drawingPlayerId = sync({
+    let requesterId = sync({
       waitFor: DrawCardRequestES,
       block: DrawableCardsES,
-    }).data.playerId;
+    }).data.requesterId;
 
     let drawableCardId = sync({ waitFor: DrawableCardsES }).data.drawableCardId;
 
-    bp.log.info(`Chosen ${drawableCardId} for ${drawingPlayerId}`);
+    bp.log.info(`Chosen ${drawableCardId} for ${requesterId}`);
 
     sync({
-      request: createDealCardToPlayerEvent(drawableCardId, drawingPlayerId),
+      request: createDealCardEvent(drawableCardId, requesterId),
     });
   }
 });
 
 // Requirement: draw one card from the top of the draw pile to form the discard pile (the top card of the discard pile is the leading card)
-// bthread("init leading card", function () {
-//   let leadingCardEntity = ctx.getEntityById(LEADING_CARD_ID);
-//   if (leadingCardEntity.card === undefined) {
-//     let drawableCardEvt = sync({ waitFor: DrawableCardsES });
-//     sync({ request: createDrawLeadingCardEvent(drawableCardEvt.data.card) });
-//   }
-// });
+bthread("init leading card", function () {
+  let leadingCardEntity = ctx.getEntityById(LEADING_CARD_ID);
+  while (leadingCardEntity.cardId === undefined)
+    sync({ request: createRequestToDrawCardEvent(LEADING_CARD_ID) });
+});
 
 /*
 ctx.bthread(

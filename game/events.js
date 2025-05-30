@@ -10,17 +10,17 @@ function createDrawableCardEvent(drawableCardId) {
   return Event(EventNames.DrawableCard, { drawableCardId });
 }
 
-function createRequestToDrawCardEvent(playerId) {
-  return Event(EventNames.RequestToDrawCard, { playerId });
+function createRequestToDrawCardEvent(requesterId) {
+  return Event(EventNames.RequestToDrawCard, { requesterId });
 }
 
-function createDealCardToPlayerEvent(drawableCardId, playerId) {
-  return Event(EventNames.DealCardToPlayer, { drawableCardId, playerId });
+function createDealCardEvent(drawableCardId, requesterId) {
+  return Event(EventNames.DealCard, { drawableCardId, requesterId });
 }
 
-// function createDrawLeadingCardEvent(card) {
-//   return Event(EventNames.DrawLeadingCard, { card });
-// }
+function createDrawLeadingCardEvent(drawableCardId) {
+  return Event(EventNames.DrawLeadingCard, { drawableCardId });
+}
 
 /////////////// Event Sets ///////////////
 
@@ -36,7 +36,7 @@ const DrawableCardsES = bp.EventSet("drawable cards eventset", function (e) {
 });
 
 const DealCardES = bp.EventSet("deal card eventset", function (e) {
-  return e.name === EventNames.DealCardToPlayer;
+  return e.name === EventNames.DealCard;
 });
 
 // TODO: remove

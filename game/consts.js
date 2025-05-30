@@ -1,5 +1,5 @@
-const LEADING_CARD_ID = "leading card"; // TODO: remove?
-const LEADING_CARD_TYPE = "leading card"; // TODO: remove?
+const LEADING_CARD_ID = "leading card";
+const LEADING_CARD_TYPE = "leading card";
 
 const DIRECTION_ID = "directon";
 const DIRECTION_TYPE = "directon";
@@ -9,7 +9,7 @@ const DIRECTION_TYPE = "directon";
 const EventNames = {
   DrawableCard: "drawable card event",
   RequestToDrawCard: "request to draw card event",
-  DealCardToPlayer: "deal card to player event",
+  DealCard: "deal card event",
   // DrawLeadingCard: "draw leading card event",
   // Step: "step event",
   // Move: "move event",

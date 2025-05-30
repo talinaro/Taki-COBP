@@ -91,7 +91,7 @@ ctx.populateContext(
     // draw pile (consists of all the cards on init)
     InitDrawableCardsEntities,
     // leading card
-    ctx.Entity(LEADING_CARD_ID, LEADING_CARD_TYPE, { card: undefined })
+    ctx.Entity(LEADING_CARD_ID, LEADING_CARD_TYPE, { cardId: undefined })
     // turns direction (+1/-1) - default +1
     // ctx.Entity(DIRECTION_ID, DIRECTION_TYPE, { direction: 1 })
   )
@@ -128,30 +128,49 @@ ctx.registerQuery(PlayerQueryNames.AllPlayers, function (entity) {
 
 /////////////// Effects ///////////////
 
-ctx.registerEffect(
-  EventNames.DealCardToPlayer,
-  function (dealCardToPlayerEvtData) {
-    let playerId = dealCardToPlayerEvtData.playerId;
+ctx.registerEffect(EventNames.DealCard, function (dealCardEvtData) {
+  let drawableCardId = dealCardEvtData.drawableCardId;
+  let drawableCardEntity = ctx.getEntityById(drawableCardId);
+  let cardId = drawableCardEntity.cardId;
 
-    let drawableCardId = dealCardToPlayerEvtData.drawableCardId;
-    let drawableCardEntity = ctx.getEntityById(drawableCardId);
-    let cardId = drawableCardEntity.cardId;
+  let requesterId = dealCardEvtData.requesterId;
 
-    bp.log.info(`Envoke effect of deal ${cardId} to ${playerId}`);
+  bp.log.info(`Envoke effect of deal ${cardId} to ${requesterId}`);
 
-    // add card to player's hand
-    let player = ctx.getEntityById(playerId);
-    player.cards.add(cardId);
+  let requester = ctx.getEntityById(requesterId);
+  // add card to player's hand
+  if (requester.type === PLAYER_TYPE) {
+    requester.cards.add(cardId);
 
-    // remove card from the draw pile
-    // let drawPile = ctx.getEntityById(DRAW_PILE_ID);
-    // drawPile.cards.delete(cardId);
-    ctx.removeEntity(drawableCardEntity);
-
-    bp.log.info(`${playerId} has ${player.cards.size} cards`);
-    bp.log.info(player);
+    bp.log.info(`${requesterId} has ${requester.cards.size} cards`);
+    bp.log.info(requester);
   }
-);
+  // set leading card of discard pile
+  else if (requester.type === LEADING_CARD_TYPE) requester.cardId = cardId;
+  else bp.log.error(`Invalid attempt of ${requesterId} to draw a card`);
+
+  // remove card from the draw pile
+  ctx.removeEntity(drawableCardEntity);
+});
+
+// ctx.registerEffect(
+//   EventNames.DrawLeadingCard,
+//   function (drawLeadingCardEvtData) {
+//     let drawableCardId = drawLeadingCardEvtData.drawableCardId;
+//     let drawableCardEntity = ctx.getEntityById(drawableCardId);
+//     let cardId = drawableCardEntity.cardId;
+
+//     // set leading card to the drawn one
+//     let leadingCardEntity = ctx.getEntityById(LEADING_CARD_ID);
+//     leadingCardEntity.cardId = cardId;
+
+//     // remove card from the draw pile
+//     ctx.removeEntity(drawableCardEntity);
+
+//     bp.log.info(`Leading card:`);
+//     bp.log.info(leadingCardEntity);
+//   }
+// );
 
 // ctx.registerEffect(MoveEventNames.DrawCard, function (drawCardEvtData) {
 //   let card = drawCardEvtData.card;
@@ -163,17 +182,3 @@ ctx.registerEffect(
 //   card.card.status = CardStatus.PlayerHand;
 //   player.player.cards.push(card);
 // });
-
-// ctx.registerEffect(
-//   EventNames.DrawLeadingCard,
-//   function (drawLeadingCardEvtData) {
-//     let drawnCard = drawLeadingCardEvtData.card;
-//     drawnCard.card.status = CardStatus.DiscardPile;
-
-//     let leadingCardEntity = ctx.getEntityById(LEADING_CARD_ID);
-//     leadingCardEntity.card = drawnCard;
-
-//     bp.log.info(`Leading card:`);
-//     bp.log.info(leadingCardEntity);
-//   }
-// );
