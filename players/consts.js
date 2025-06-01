@@ -10,5 +10,5 @@ const INIT_PLAYER_CARDS_NUM = 8;
 
 const PlayerQueryNames = {
   AllPlayers: "all players query",
-  WithCards: "player with cards query",
+  WithCards: "player with cards query", // TODO: remove?
 };

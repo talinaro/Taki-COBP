@@ -61,21 +61,14 @@ const AllCards = flat(
  * all the cards
  * players
  * cards of each player
- * draw pile
+ * draw pile            // TODO: remove
  * discard pile
  * leading card
  * turns direction (+1/-1) - default +1
  */
 
 const CardEntities = AllCards.map((card, i) =>
-  ctx.Entity(CardId(card.name, card.color, i), CardTypes.Any, { card })
-);
-
-// const CardEntitiesIds = new Set(CardEntities.map((card) => card.id));
-const InitDrawableCardsEntities = CardEntities.map((cardEntity) =>
-  ctx.Entity(DrawableCardId(cardEntity.id), CardTypes.Drawable, {
-    cardId: cardEntity.id,
-  })
+  ctx.Entity(CardId(card.name, card.color, i), CARD_TYPE, { card })
 );
 
 const PlayerEntities = PlayersIndexes.map((i) =>
@@ -88,8 +81,6 @@ ctx.populateContext(
     CardEntities,
     // players
     PlayerEntities,
-    // draw pile (consists of all the cards on init)
-    InitDrawableCardsEntities,
     // leading card
     ctx.Entity(LEADING_CARD_ID, LEADING_CARD_TYPE, { cardId: undefined })
     // turns direction (+1/-1) - default +1
@@ -111,11 +102,7 @@ ctx.populateContext(
  */
 
 ctx.registerQuery(CardQueryNames.AllCards, function (entity) {
-  return entity.type === CardTypes.Any;
-});
-
-ctx.registerQuery(CardQueryNames.AllDrawableCards, function (entity) {
-  return entity.type === CardTypes.Drawable;
+  return entity.type === CARD_TYPE;
 });
 
 ctx.registerQuery(PlayerQueryNames.AllPlayers, function (entity) {
@@ -128,49 +115,23 @@ ctx.registerQuery(PlayerQueryNames.AllPlayers, function (entity) {
 
 /////////////// Effects ///////////////
 
-ctx.registerEffect(EventNames.DealCard, function (dealCardEvtData) {
-  let drawableCardId = dealCardEvtData.drawableCardId;
-  let drawableCardEntity = ctx.getEntityById(drawableCardId);
-  let cardId = drawableCardEntity.cardId;
+ctx.registerEffect(EventNames.DrawCard, function (drawCardEvtData) {
+  let requesterId = drawCardEvtData.requesterId;
+  let cardId = drawCardEvtData.cardId;
 
-  let requesterId = dealCardEvtData.requesterId;
+  bp.log.info(`Envoke effect of draw ${cardId} to ${requesterId}`);
 
-  bp.log.info(`Envoke effect of deal ${cardId} to ${requesterId}`);
+  let requesterEntity = ctx.getEntityById(requesterId);
 
-  let requester = ctx.getEntityById(requesterId);
-  // add card to player's hand
-  if (requester.type === PLAYER_TYPE) {
-    requester.cards.add(cardId);
-
-    bp.log.info(`${requesterId} has ${requester.cards.size} cards`);
-    bp.log.info(requester);
+  if (requesterEntity.type === PLAYER_TYPE) {
+    requesterEntity.cards.add(cardId);
+    bp.log.info(`${requesterId} has ${requesterEntity.cards.size} cards`);
+  } else if (requesterEntity.type === LEADING_CARD_TYPE) {
+    requesterEntity.cardId = cardId;
+  } else {
+    bp.log.info(`Ivalid draw card requester ${requesterId}`);
   }
-  // set leading card of discard pile
-  else if (requester.type === LEADING_CARD_TYPE) requester.cardId = cardId;
-  else bp.log.error(`Invalid attempt of ${requesterId} to draw a card`);
-
-  // remove card from the draw pile
-  ctx.removeEntity(drawableCardEntity);
 });
-
-// ctx.registerEffect(
-//   EventNames.DrawLeadingCard,
-//   function (drawLeadingCardEvtData) {
-//     let drawableCardId = drawLeadingCardEvtData.drawableCardId;
-//     let drawableCardEntity = ctx.getEntityById(drawableCardId);
-//     let cardId = drawableCardEntity.cardId;
-
-//     // set leading card to the drawn one
-//     let leadingCardEntity = ctx.getEntityById(LEADING_CARD_ID);
-//     leadingCardEntity.cardId = cardId;
-
-//     // remove card from the draw pile
-//     ctx.removeEntity(drawableCardEntity);
-
-//     bp.log.info(`Leading card:`);
-//     bp.log.info(leadingCardEntity);
-//   }
-// );
 
 // ctx.registerEffect(MoveEventNames.DrawCard, function (drawCardEvtData) {
 //   let card = drawCardEvtData.card;

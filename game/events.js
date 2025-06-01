@@ -6,61 +6,34 @@
 //   return Event(EventNames.Step, { card });
 // }
 
-function createDrawableCardEvent(drawableCardId) {
-  return Event(EventNames.DrawableCard, { drawableCardId });
+function createDrawPileEvent(cardId) {
+  return Event(EventNames.DrawPile, { cardId });
 }
 
 function createRequestToDrawCardEvent(requesterId) {
   return Event(EventNames.RequestToDrawCard, { requesterId });
 }
 
-function createDealCardEvent(drawableCardId, requesterId) {
-  return Event(EventNames.DealCard, { drawableCardId, requesterId });
-}
-
-function createDrawLeadingCardEvent(drawableCardId) {
-  return Event(EventNames.DrawLeadingCard, { drawableCardId });
+function createDrawCardEvent(requesterId, cardId) {
+  return Event(EventNames.DrawCard, { requesterId, cardId });
 }
 
 /////////////// Event Sets ///////////////
 
-const DrawCardRequestES = bp.EventSet(
-  "draw card requests eventset",
+const DrawPileES = bp.EventSet("draw pile eventset", function (e) {
+  return e.name === EventNames.DrawPile;
+});
+
+const RequestToDrawCardES = bp.EventSet(
+  "request to draw card eventset",
   function (e) {
     return e.name === EventNames.RequestToDrawCard;
   }
 );
 
-const DrawableCardsES = bp.EventSet("drawable cards eventset", function (e) {
-  return e.name === EventNames.DrawableCard;
+const DrawCardES = bp.EventSet("draw card requests eventset", function (e) {
+  return e.name === EventNames.DrawCard;
 });
-
-const DealCardES = bp.EventSet("deal card eventset", function (e) {
-  return e.name === EventNames.DealCard;
-});
-
-// TODO: remove
-// const DrawCardByPlayerES = (player) =>
-//   bp.EventSet("draw-card-by-player", function (e) {
-//     return (
-//       e.name === EventNames.DrawCard && e.data.player.id === player.player.id
-//     );
-//   });
-
-// TODO: remove
-// const DrawCardByOtherPlayersES = (drawingPlayer, drawnCard) =>
-//   bp.EventSet("draw-card-by-other-players", function (e) {
-//     if (e.name !== EventNames.DrawCard) return false;
-
-//     const eventPlayer = e.data.player;
-//     const eventCard = e.data.card;
-
-//     // other players trying to draw an already drawn card
-//     return (
-//       drawingPlayer.player.id !== eventPlayer.player.id &&
-//       drawnCard.card.id === eventCard.card.id
-//     );
-//   });
 
 // const SpecificPlayerMovesES = (playerIndex) =>
 //   bp.EventSet("specific-player-moves", function (e) {

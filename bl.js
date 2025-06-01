@@ -41,50 +41,55 @@ ctx.bthread(
   }
 );
 
-// Requirement: The cards are shuffled
-ctx.bthread(
-  "generate all drawable card events",
-  CardQueryNames.AllDrawableCards,
-  function (drawableCardEntity) {
-    while (true)
-      sync({ request: createDrawableCardEvent(drawableCardEntity.id) });
-  }
-);
+bthread("dealer", function () {
+  // init draw pile
+  let drawPileCardIds = new Set(CardEntities.map((card) => card.id));
 
-// Requirement: Each player receives eight cards
+  while (true) {
+    sync({ waitFor: RequestToDrawCardES });
+
+    let drawPileEvents = Array.from(drawPileCardIds).map((cardId) =>
+      createDrawPileEvent(cardId)
+    );
+    let topDrawPileEvt = sync({ request: drawPileEvents });
+    bp.log.info(`dealer -> draw pile top: ${topDrawPileEvt}`);
+
+    // remove a drawn card from the draw pile
+    drawPileCardIds.delete(topDrawPileEvt.data.cardId);
+
+    bp.log.info(`Draw pile (size=${drawPileCardIds.size}):`);
+    bp.log.info(drawPileCardIds);
+  }
+});
+
+// Requirement: The cards are shuffled and each player receives eight cards
 ctx.bthread(
   "deal 8 cards to player",
   PlayerQueryNames.AllPlayers,
   function (playerEntity) {
-    // TODO: not perfect condition - sometimes playeres get 1 extra card when another event requested
     while (playerEntity.cards.size < INIT_PLAYER_CARDS_NUM) {
       sync({ request: createRequestToDrawCardEvent(playerEntity.id) });
+
+      let cardId = sync({ waitFor: DrawPileES }).data.cardId;
+      sync({ request: createDrawCardEvent(playerEntity.id, cardId) });
+
+      bp.log.info(`${playerEntity.id} cards:`);
+      bp.log.info(playerEntity);
     }
   }
 );
 
-bthread("dealer", function () {
-  while (true) {
-    let requesterId = sync({
-      waitFor: DrawCardRequestES,
-      block: DrawableCardsES,
-    }).data.requesterId;
-
-    let drawableCardId = sync({ waitFor: DrawableCardsES }).data.drawableCardId;
-
-    bp.log.info(`Chosen ${drawableCardId} for ${requesterId}`);
-
-    sync({
-      request: createDealCardEvent(drawableCardId, requesterId),
-    });
-  }
-});
-
 // Requirement: draw one card from the top of the draw pile to form the discard pile (the top card of the discard pile is the leading card)
 bthread("init leading card", function () {
   let leadingCardEntity = ctx.getEntityById(LEADING_CARD_ID);
-  while (leadingCardEntity.cardId === undefined)
+  if (leadingCardEntity.cardId === undefined) {
     sync({ request: createRequestToDrawCardEvent(LEADING_CARD_ID) });
+
+    let cardId = sync({ waitFor: DrawPileES }).data.cardId;
+    sync({ request: createDrawCardEvent(LEADING_CARD_ID, cardId) });
+
+    bp.log.info(`Leading card: ${leadingCardEntity.cardId}`);
+  }
 });
 
 /*
@@ -107,23 +112,23 @@ ctx.bthread(
     sync({ request: createMoveEvent([drawCard]) }); // TODO: maybe draw event is different from card event?
   }
 );
+*/
 
 // Requirement:
 // The players play one after another in clockwise order (index-growing).
 // The direction may change if any player puts the "change direction" card.
-// A player can finish his cards and leave the game, but the other players will 0continue to play.
-bthread("define players order", function () {
-  let currentPlayerIndex = 0;
+// A player can finish his cards and leave the game, but the other players will continue to play.
+// bthread("define players order", function () {
+//   let currentPlayerIndex = 0;
+//   let direction = INIT_DIRECTION;
 
-  while (true) {
-    let direction = ctx.getEntityById(DIRECTION_ID).direction;
-    let move = sync({
-      waitFor: SpecificPlayerMovesES(currentPlayerIndex),
-      block: AllRestPlayersMovesES(currentPlayerIndex),
-    });
-    bp.log.info(move);
+//   while (true) {
+//     let move = sync({
+//       waitFor: SpecificPlayerMovesES(currentPlayerIndex),
+//       block: AllRestPlayersMovesES(currentPlayerIndex),
+//     });
+//     bp.log.info(move);
 
-    currentPlayerIndex = getNextPlayerIndex(currentPlayerIndex, direction);
-  }
-});
-*/
+//     currentPlayerIndex = getNextPlayerIndex(currentPlayerIndex, direction);
+//   }
+// });

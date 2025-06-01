@@ -1,7 +1,4 @@
-const CardTypes = {
-  Any: "any card",
-  Drawable: "drawable card",
-};
+const CARD_TYPE = "card";
 
 const CardColors = {
   Red: "red",
@@ -30,5 +27,4 @@ const CardNames = {
 
 const CardQueryNames = {
   AllCards: "all cards query",
-  AllDrawableCards: "all drawable cards query",
 };

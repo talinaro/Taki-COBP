@@ -4,5 +4,3 @@ const CardId = (name, color, i) =>
 function Card(name, color) {
   return { name, color };
 }
-
-const DrawableCardId = (cardId) => `Drawable-${cardId}`;
