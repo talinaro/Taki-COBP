@@ -115,7 +115,7 @@ ctx.registerQuery(PlayerQueryNames.AllPlayers, function (entity) {
 
 /////////////// Effects ///////////////
 
-ctx.registerEffect(EventNames.DrawCard, function (drawCardEvtData) {
+ctx.registerEffect(EventNames.DealCardByRequest, function (drawCardEvtData) {
   let requesterId = drawCardEvtData.requesterId;
   let cardId = drawCardEvtData.cardId;
 
@@ -126,20 +126,10 @@ ctx.registerEffect(EventNames.DrawCard, function (drawCardEvtData) {
   if (requesterEntity.type === PLAYER_TYPE) {
     requesterEntity.cards.add(cardId);
     bp.log.info(`${requesterId} has ${requesterEntity.cards.size} cards`);
+    bp.log.info(requesterEntity);
   } else if (requesterEntity.type === LEADING_CARD_TYPE) {
     requesterEntity.cardId = cardId;
   } else {
     bp.log.info(`Ivalid draw card requester ${requesterId}`);
   }
 });
-
-// ctx.registerEffect(MoveEventNames.DrawCard, function (drawCardEvtData) {
-//   let card = drawCardEvtData.card;
-//   let player = drawCardEvtData.player;
-
-//   bp.log.info(drawCardEvtData);
-//   // bp.log.info(`Envoke effect of ${player.id} drawing ${card.id}`);
-
-//   card.card.status = CardStatus.PlayerHand;
-//   player.player.cards.push(card);
-// });

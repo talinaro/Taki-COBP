@@ -8,9 +8,13 @@ const INIT_DIRECTION = 1;
 /////////////// Event Names ///////////////
 
 const EventNames = {
-  DrawPile: "draw pile event",
+  DealCardByRequest: "deal card by request event",
   RequestToDrawCard: "request to draw card event",
   DrawCard: "draw card event",
+  StepTypes: {
+    DrawCard: "draw card step event",
+    DiscardCard: "discard card step event",
+  },
   // Step: "step event",
   // Move: "move event",
   // Win: "win event",
@@ -18,6 +22,4 @@ const EventNames = {
 
 /////////////// Query Names ///////////////
 
-const GameQueryNames = {
-  DrawPile: "draw pile query",
-};
+const GameQueryNames = {};

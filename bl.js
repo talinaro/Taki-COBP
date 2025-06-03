@@ -46,10 +46,10 @@ bthread("dealer", function () {
   let drawPileCardIds = new Set(CardEntities.map((card) => card.id));
 
   while (true) {
-    sync({ waitFor: RequestToDrawCardES });
+    let requesterId = sync({ waitFor: RequestToDrawCardES }).data.requesterId;
 
     let drawPileEvents = Array.from(drawPileCardIds).map((cardId) =>
-      createDrawPileEvent(cardId)
+      createDealCardByRequestEvent(requesterId, cardId)
     );
     let topDrawPileEvt = sync({ request: drawPileEvents });
     bp.log.info(`dealer -> draw pile top: ${topDrawPileEvt}`);
@@ -69,9 +69,7 @@ ctx.bthread(
   function (playerEntity) {
     while (playerEntity.cards.size < INIT_PLAYER_CARDS_NUM) {
       sync({ request: createRequestToDrawCardEvent(playerEntity.id) });
-
-      let cardId = sync({ waitFor: DrawPileES }).data.cardId;
-      sync({ request: createDrawCardEvent(playerEntity.id, cardId) });
+      sync({ waitFor: DealtCardRequesterES(playerEntity.id) });
 
       bp.log.info(`${playerEntity.id} cards:`);
       bp.log.info(playerEntity);
@@ -84,9 +82,7 @@ bthread("init leading card", function () {
   let leadingCardEntity = ctx.getEntityById(LEADING_CARD_ID);
   if (leadingCardEntity.cardId === undefined) {
     sync({ request: createRequestToDrawCardEvent(LEADING_CARD_ID) });
-
-    let cardId = sync({ waitFor: DrawPileES }).data.cardId;
-    sync({ request: createDrawCardEvent(LEADING_CARD_ID, cardId) });
+    sync({ waitFor: DealtCardRequesterES(LEADING_CARD_ID) });
 
     bp.log.info(`Leading card: ${leadingCardEntity.cardId}`);
   }
