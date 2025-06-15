@@ -1,17 +1,12 @@
 /////////////// Init ///////////////
 
-/** Init requirements:
+/** Init setup:
  * Taki cards deck consists of 116 cards:
  * - each number card - 2 of each color
  * - +2, stop, change direction, plus, taki - 2 of each color
  * - change color - 4 (uncolored)
  * - super taki, king, +3, break +3 - 2 of each (uncolored)
  * define number of players
- * define the playing order
- * deal 8 cards to each player
- * rest of the cards are the draw pile
- * draw one card from the top of the draw pile to form the discard pile (the top card of the discard pile is the leading card)
- * statring clockwise
  */
 
 const CardsAmounts = [].concat(
@@ -57,16 +52,6 @@ const AllCards = flat(
 
 /////////////// Context ///////////////
 
-/** Context:
- * all the cards
- * players
- * cards of each player
- * draw pile            // TODO: remove
- * discard pile
- * leading card
- * turns direction (+1/-1) - default +1
- */
-
 const CardEntities = AllCards.map((card, i) =>
   ctx.Entity(CardId(card.name, card.color, i), CARD_TYPE, { card })
 );
@@ -81,10 +66,19 @@ ctx.populateContext(
     CardEntities,
     // players
     PlayerEntities,
-    // leading card
-    ctx.Entity(LEADING_CARD_ID, LEADING_CARD_TYPE, { cardId: undefined })
-    // turns direction (+1/-1) - default +1
-    // ctx.Entity(DIRECTION_ID, DIRECTION_TYPE, { direction: 1 })
+    // game status
+    ctx.Entity(GAME_STATUS_ID, GAME_STATUS_TYPE, {
+      leadingCardId: undefined,
+      color: undefined,
+      cardName: undefined,
+      isActive: false, // TODO: should be separate isActive for TAKI, +2, +3? or maybe not bool, but "activeAction" that will be undefined or CardNames
+    }),
+    // turns order
+    ctx.Entity(GAME_TURNS_ID, GAME_TURNS_TYPE, {
+      playersOrder: PlayerEntities.map((p) => p.id),
+      current: 0,
+      direction: INIT_DIRECTION,
+    })
   )
 );
 
@@ -109,9 +103,21 @@ ctx.registerQuery(PlayerQueryNames.AllPlayers, function (entity) {
   return entity.type === PLAYER_TYPE;
 });
 
-// ctx.registerQuery(PlayerQueryNames.WithCards, function (entity) {
-//   return entity.type === PLAYER_TYPE && playerHasCards(entity);
-// });
+ctx.registerQuery(GameQueryNames.GameTurns, function (entity) {
+  return entity.name === GAME_TURNS_ID;
+});
+
+PlayerEntities.forEach((p) => {
+  ctx.registerQuery(PlayerQueryNames.PlayerTurn(p.id), function (entity) {
+    return (
+      entity.id === p.id && ctx.getEntityById(GAME_TURNS_ID).current === p.id
+    );
+  });
+});
+
+ctx.registerQuery(PlayerQueryNames.NoCards, function (entity) {
+  return entity.type === PLAYER_TYPE && entity.cards.size === 0;
+});
 
 /////////////// Effects ///////////////
 
@@ -123,13 +129,79 @@ ctx.registerEffect(EventNames.DealCardByRequest, function (drawCardEvtData) {
 
   let requesterEntity = ctx.getEntityById(requesterId);
 
+  // deal card to player
   if (requesterEntity.type === PLAYER_TYPE) {
     requesterEntity.cards.add(cardId);
     bp.log.info(`${requesterId} has ${requesterEntity.cards.size} cards`);
     bp.log.info(requesterEntity);
-  } else if (requesterEntity.type === LEADING_CARD_TYPE) {
-    requesterEntity.cardId = cardId;
+  }
+  // set leading card
+  else if (requesterEntity.type === GAME_STATUS_ID) {
+    requesterEntity.leadingCardId = cardId;
   } else {
     bp.log.info(`Ivalid draw card requester ${requesterId}`);
   }
+});
+
+ctx.registerEffect(EventNames.DiscardMove, function (discardMoveEvtData) {
+  let cardIds = discardMoveEvtData.cardIds;
+  let discarderId = discardMoveEvtData.discarderId;
+
+  bp.log.info(`Envoke effect of ${discarderId} discarding ${cardIds}`);
+
+  let discarderEntity = ctx.getEntityById(discarderId);
+
+  // remove the cards from player's hand
+  if (discarderEntity.type === PLAYER_TYPE) {
+    cardIds.forEach((cardId) => {
+      discarderEntity.cards.delete(cardId);
+      bp.log.info(`${discarderId} discarded ${cardEntity.id}`);
+    });
+    bp.log.info(`${discarderId} hand: ${discarderEntity.cards}`);
+  }
+
+  // update game status with the last discarded card
+  let lastCardEntity = ctx.getEntityById(cardIds.slice(-1)[0]);
+  let gameStatusEntity = ctx.getEntityById(GAME_STATUS_ID);
+
+  gameStatusEntity.leadingCardId = lastCardEntity.id;
+  gameStatusEntity.color = lastCardEntity.card.color;
+  gameStatusEntity.cardName = lastCardEntity.card.name;
+  gameStatusEntity.isActive = true; // TODO: ?
+
+  bp.log.info("Game status:");
+  bp.log.info(gameStatusEntity);
+});
+
+ctx.registerEffect(EventNames.ChangePlayer, function (changePlayerEvtData) {
+  let playerIndex = changePlayerEvtData.playerIndex;
+  let gameTurnsEntity = ctx.getEntityById(GAME_TURNS_ID);
+  gameTurnsEntity.current = playerIndex;
+});
+
+ctx.registerEffect(EventNames.ChangeDirection, function (data) {
+  bp.log.info("Envoke effect of change direction card");
+
+  let gameTurnsEntity = ctx.getEntityById(GAME_TURNS_ID);
+  gameTurnsEntity.direction = switchDirection(gameTurnsEntity.direction);
+
+  bp.log.info(`Turns direction: ${gameTurnsEntity.direction}`);
+});
+
+ctx.registerEffect(EventNames.Win, function (winEvtData) {
+  let winnerPlayerId = winEvtData.PlayerId;
+  let gameTurnsEntity = ctx.getEntityById(GAME_TURNS_ID);
+
+  // calculate next turn
+  let nextPlayerIndex = getNextPlayerIndex(
+    gameTurnsEntity.current,
+    gameTurnsEntity.direction
+  );
+  let nextPlayerId = gameTurnsEntity.playersOrder[nextPlayerIndex];
+
+  // winner exits the game
+  removeByValue(gameTurnsEntity.playersOrder, winnerPlayerId);
+
+  // update next turn
+  gameTurnsEntity.current = gameTurnsEntity.playersOrder.indexOf(nextPlayerId);
 });

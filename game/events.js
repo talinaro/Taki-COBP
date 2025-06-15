@@ -1,6 +1,6 @@
-// function createMoveEvent(cards) {
-//   return Event(EventNames.Move, { cards });
-// }
+function createMoveEvent(playerId, steps) {
+  return Event(EventNames.Move, { playerId, steps });
+}
 
 // function createStepEvent(card) {
 //   return Event(EventNames.Step, { card });
@@ -10,8 +10,24 @@ function createDealCardByRequestEvent(requesterId, cardId) {
   return Event(EventNames.DealCardByRequest, { requesterId, cardId });
 }
 
-function createRequestToDrawCardEvent(requesterId) {
-  return Event(EventNames.RequestToDrawCard, { requesterId });
+function createRequestToDrawCardEvent(requesterId, amount) {
+  return Event(EventNames.RequestToDrawCard, { requesterId, amount });
+}
+
+function createChangePlayerEvent(playerIndex) {
+  return Event(EventNames.ChangePlayer, { playerIndex });
+}
+
+function createChangeDirectionEvent() {
+  return Event(EventNames.ChangeDirection);
+}
+
+function createWinEvent(playerId) {
+  return Event(EventNames.Win, { playerId });
+}
+
+function createDiscardMoveEvent(discarderId, cardIds) {
+  return Event(EventNames.DiscardMove, { discarderId, cardIds });
 }
 
 /////////////// Event Sets ///////////////
@@ -31,24 +47,21 @@ const RequestToDrawCardES = bp.EventSet(
   }
 );
 
-const DrawCardES = bp.EventSet("draw card requests eventset", function (e) {
-  return e.name === EventNames.StepTypes.DrawCard;
-});
+const AnyChangePlayerES = bp.EventSet(
+  "any change player eventset",
+  function (e) {
+    return e.name === EventNames.ChangePlayer;
+  }
+);
 
-// const SpecificPlayerMovesES = (playerIndex) =>
-//   bp.EventSet("specific player moves eventset", function (e) {
-//     if (e.name !== EventNames.Move) return false;
+const DiscardCardES = bp.EventSet(
+  "discard card requests eventset",
+  function (e) {
+    return e.name === EventNames.DiscardMove;
+  }
+);
 
-//     const moveCards = e.data.cards;
-//     const playerCards = ctx.getEntityById(PlayerId(playerIndex)).cards;
-//     return isSubCardsList(moveCards, playerCards);
-//   });
-
-// const AllRestPlayersMovesES = (playerIndex) =>
-//   bp.EventSet("all rest player moves eventset", function (e) {
-//     if (e.name !== EventNames.Move) return false;
-
-//     const moveCards = e.data.cards;
-//     const playerCards = ctx.getEntityById(PlayerId(playerIndex)).cards;
-//     return !isSubCardsList(moveCards, playerCards);
-//   });
+const allEventsExcept = (events) =>
+  bp.EventSet(`all events except ${events}`, function (e) {
+    return events.every((evt) => evt.name !== e.name);
+  });
