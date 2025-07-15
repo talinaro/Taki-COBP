@@ -9,9 +9,10 @@ const INIT_DIRECTION = 1;
 /////////////// Event Names ///////////////
 
 const EventNames = {
-  DealCardByRequest: "deal card by request event",
+  RequestInitCards: "request init cards event",
   RequestToDrawCard: "request to draw card event",
-  DrawMove: "draw move event",
+  DealCardByRequest: "deal card by request event",
+  InitLeadingCard: "set leading card request",
   DiscardMove: "discard move event",
   ChangePlayer: "change player event",
   ChangeDirection: "change direction",

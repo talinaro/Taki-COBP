@@ -71,12 +71,12 @@ ctx.populateContext(
       leadingCardId: undefined,
       color: undefined,
       cardName: undefined,
-      isActive: false, // TODO: should be separate isActive for TAKI, +2, +3? or maybe not bool, but "activeAction" that will be undefined or CardNames
+      isActive: false, // TODO: should be separate isActive for TAKI, +2, +3? or maybe not bool, but "activeAction" that will be undefined or CardNames?
     }),
     // turns order
     ctx.Entity(GAME_TURNS_ID, GAME_TURNS_TYPE, {
       playersOrder: PlayerEntities.map((p) => p.id),
-      current: 0,
+      current: UNDEFINED_PLAYER_INDEX,
       direction: INIT_DIRECTION,
     })
   )
@@ -104,13 +104,14 @@ ctx.registerQuery(PlayerQueryNames.AllPlayers, function (entity) {
 });
 
 ctx.registerQuery(GameQueryNames.GameTurns, function (entity) {
-  return entity.name === GAME_TURNS_ID;
+  return entity.id === GAME_TURNS_ID;
 });
 
 PlayerEntities.forEach((p) => {
   ctx.registerQuery(PlayerQueryNames.PlayerTurn(p.id), function (entity) {
     return (
-      entity.id === p.id && ctx.getEntityById(GAME_TURNS_ID).current === p.id
+      entity.id === p.id &&
+      ctx.getEntityById(GAME_TURNS_ID).current === PlayerIndex(p.id)
     );
   });
 });
@@ -125,7 +126,7 @@ ctx.registerEffect(EventNames.DealCardByRequest, function (drawCardEvtData) {
   let requesterId = drawCardEvtData.requesterId;
   let cardId = drawCardEvtData.cardId;
 
-  bp.log.info(`Envoke effect of draw ${cardId} to ${requesterId}`);
+  bp.log.info(`Envoke effect of dealing ${cardId} to ${requesterId}`);
 
   let requesterEntity = ctx.getEntityById(requesterId);
 
@@ -142,6 +143,23 @@ ctx.registerEffect(EventNames.DealCardByRequest, function (drawCardEvtData) {
     bp.log.info(`Ivalid draw card requester ${requesterId}`);
   }
 });
+
+ctx.registerEffect(
+  EventNames.InitLeadingCard,
+  function (initLeadingCardEvtData) {
+    let cardId = initLeadingCardEvtData.cardId;
+
+    bp.log.info(`Envoke effect of init leading card ${cardId}`);
+
+    let cardEntity = ctx.getEntityById(cardId);
+    let gameStatusEntity = ctx.getEntityById(GAME_STATUS_ID);
+
+    gameStatusEntity.leadingCardId = cardEntity.id;
+    gameStatusEntity.color = cardEntity.card.color;
+    gameStatusEntity.cardName = cardEntity.card.name;
+    gameStatusEntity.isActive = false;
+  }
+);
 
 ctx.registerEffect(EventNames.DiscardMove, function (discardMoveEvtData) {
   let cardIds = discardMoveEvtData.cardIds;
@@ -167,7 +185,7 @@ ctx.registerEffect(EventNames.DiscardMove, function (discardMoveEvtData) {
   gameStatusEntity.leadingCardId = lastCardEntity.id;
   gameStatusEntity.color = lastCardEntity.card.color;
   gameStatusEntity.cardName = lastCardEntity.card.name;
-  gameStatusEntity.isActive = true; // TODO: ?
+  gameStatusEntity.isActive = true;
 
   bp.log.info("Game status:");
   bp.log.info(gameStatusEntity);
@@ -177,6 +195,8 @@ ctx.registerEffect(EventNames.ChangePlayer, function (changePlayerEvtData) {
   let playerIndex = changePlayerEvtData.playerIndex;
   let gameTurnsEntity = ctx.getEntityById(GAME_TURNS_ID);
   gameTurnsEntity.current = playerIndex;
+
+  bp.log.info(`Current player: ${gameTurnsEntity.current}`);
 });
 
 ctx.registerEffect(EventNames.ChangeDirection, function (data) {

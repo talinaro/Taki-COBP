@@ -5,3 +5,7 @@ function getNextPlayerIndex(currentPlayerIndex, direction) {
    */
   return (currentPlayerIndex + direction + PlayersNumber) % PlayersNumber;
 }
+
+function isFullInitHand(player) {
+  return player.cards.size === INIT_PLAYER_CARDS_NUM;
+}
