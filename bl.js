@@ -7,11 +7,11 @@
  */
 
 /** Playing rules:
- * Each player at his turn can do one of the 4 options:
- * - discard a card of the same number or color as the leading card
- * - discard a special card of the same figure or color as the leading card (and play according to it)
- * - discard a special uncolored card (and play according to it)
- * - draw one card and his turn ends
+ * Each player at his turn discards a card (or cards) onto the leading card, by:
+ * (a) matching its color; or
+ * (b) matching its number or figure; or
+ * (c) using a SuperTaki, Change Color, King, or +3 card.
+ * A player who cannot play draws one card from the draw pile.
  * Player left with one card must declare "Last card!". If he fails before next player made his move, he draws 4 crads.
  * - NOTE: No need to declare "Last card!" when the last card left is during a taki run, because it considered one turn.
  * First player that gets rid of all his cards, wins the game
@@ -52,6 +52,8 @@
 //  *            - the direction of the play after a crazy card has been played is the direction of the switch
  */
 
+const allPlayers = ctx.runQuery(PlayerQueryNames.AllPlayers);
+
 ctx.bthread("print all cards", CardQueryNames.AllCards, function (cardEntity) {
   bp.log.info(cardEntity);
 });
@@ -70,7 +72,9 @@ bthread("dealer", function () {
   let drawPileCardIds = new Set(allCards.map((card) => card.id));
 
   while (true) {
-    let requestToDrawCardEvtData = sync({ waitFor: RequestToDrawCardES }).data;
+    let requestToDrawCardEvtData = sync({
+      waitFor: RequestCardsFromDealerES,
+    }).data;
 
     for (let i = 0; i < requestToDrawCardEvtData.amount; i++) {
       let drawPileEvents = Array.from(drawPileCardIds).map((cardId) =>
@@ -95,141 +99,171 @@ bthread("dealer", function () {
   }
 });
 
+// Requirement:
+// Draw one card from the top of the draw pile to form the discard pile (the top card of the discard pile is the leading card).
+bthread("init leading card", function () {
+  let gameStatusEntity = ctx.getEntityById(GAME_STATUS_ID);
+  if (gameStatusEntity.leadingCardId === undefined) {
+    sync({ request: createRequestInitCardsEvent(GAME_STATUS_ID, 1) });
+    let leadingCardId = sync({ waitFor: DealtCardRequesterES(GAME_STATUS_ID) })
+      .data.cardId;
+    sync({ request: createInitLeadingCardEvent(leadingCardId) });
+
+    bp.log.info(`Leading card: ${gameStatusEntity.leadingCardId}`);
+  }
+});
+
 // Requirement: The cards are shuffled and each player receives eight cards
 ctx.bthread(
   "deal 8 cards to player",
   PlayerQueryNames.AllPlayers,
   function (playerEntity) {
-    // while (playerEntity.cards.size < INIT_PLAYER_CARDS_NUM) {
     sync({
-      request: createRequestToDrawCardEvent(
+      request: createRequestInitCardsEvent(
         playerEntity.id,
         INIT_PLAYER_CARDS_NUM
       ),
     });
     sync({ waitFor: DealtCardRequesterES(playerEntity.id) });
 
+    sync({ request: createInitializedPlayerHandEvent(playerEntity.id) });
+
     bp.log.info(`${playerEntity.id} cards:`);
     bp.log.info(playerEntity);
   }
-  // }
 );
 
-// Requirement:
-// Draw one card from the top of the draw pile to form the discard pile (the top card of the discard pile is the leading card).
-// - If the leading card is a special card, ignore the action and play according to the color and sign.
-bthread("init leading card", function () {
-  let gameStatusEntity = ctx.getEntityById(GAME_STATUS_ID);
-  if (gameStatusEntity.leadingCardId === undefined) {
-    sync({ request: createRequestToDrawCardEvent(GAME_STATUS_ID, 1) });
-    let leadingCardId = sync({ waitFor: DealtCardRequesterES(GAME_STATUS_ID) })
-      .data.cardId;
-    sync({ request: createDiscardMoveEvent(GAME_STATUS_ID, [leadingCardId]) });
+// Game starts after init by defining first player turn
+bthread("start game after init", function () {
+  for (let i = 0; i < PLAYERS_NUMBER + 1; i++)
+    sync({ waitFor: InitializedObjectsES });
 
-    bp.log.info(`Leading card: ${gameStatusEntity.leadingCardId}`);
-  }
+  sync({
+    request: createChangePlayerEvent(0),
+    block: AnyMoveES,
+    waitFor: AnyChangePlayerES,
+  });
 });
 
 // Requirement:
 // The players play one after another in clockwise order (index-growing).
 // The direction or order may change on some cases as elaborated below.
-// ctx.bthread("advance turns", GameQueryNames.GameTurns, function (gameEntity) {
-//   while (true) {
-//     let move = sync({ waitFor: AnyMove });
-//     bp.log.info(move);
+ctx.bthread(
+  "advance turns",
+  GameQueryNames.GameTurns,
+  function (gameTurnsEntity) {
+    while (true) {
+      let move = sync({ waitFor: AnyMoveES });
+      bp.log.info(`advance turns -> move: ${move}`);
 
-//     sync({
-//       request: createChangePlayerEvent(
-//         getNextPlayerIndex(gameEntity.current, gameEntity.direction)
-//       ),
-//       block: AnyMove,
-//       waitFor: AnyChangePlayerES,
-//     });
-//   }
-// });
+      sync({
+        request: createChangePlayerEvent(
+          getNextPlayerIndex(gameTurnsEntity, 1)
+        ),
+        block: AnyMoveES,
+        waitFor: AnyChangePlayerES,
+      });
+    }
+  }
+);
 
-// // Requirement: change direction - Reverses the direction of the play before advancing the turn
-// bthread("change direction card", function () {
-//   while (true) {
-//     let move = sync({ waitFor: ChangeDirectionES });
-//     bp.log.info(move);
+// Requirement: change direction - Reverses the direction of the play before advancing the turn
+bthread("change direction card", function () {
+  while (true) {
+    let move = sync({
+      waitFor: DiscardMovesOfTypeES(CardSymbols.ChangeDirection),
+    });
+    bp.log.info(`change direction card -> move: ${move}`);
 
-//     // let evt = Event(
-//     //   EventNames.ChangePlayer,
-//     //   (gameEntity.current + gameEntity.direction * 2) % PLAYERS_NUM
-//     // );
-//     // sync({
-//     //   request: evt,
-//     //   block: [AnyChangePlayerES.except(evt), AnyMove],
-//     // });
+    sync({
+      request: createChangeDirectionEvent(),
+      block: [AnyChangePlayerES, AnyMoveES],
+    });
+  }
+});
 
-//     sync({
-//       request: createChangeDirectionEvent(),
-//       block: AnyChangePlayerES,
-//     });
-//   }
-// });
+// Requirement: stop - Next player loses his turn
+ctx.bthread("stop card", GameQueryNames.GameTurns, function (gameTurnsEntity) {
+  while (true) {
+    move = sync({ waitFor: DiscardMovesOfTypeES(CardSymbols.Stop) });
+    bp.log.info(`stop card -> move: ${move}`);
 
-// // Requirement: stop - Next player loses his turn
-// ctx.bthread("stop card", GameQueryNames.GameTurns, function (gameEntity) {
-//   let move = null;
-//   let evt = null;
+    evt = createChangePlayerEvent(getNextPlayerIndex(gameTurnsEntity, 2));
+    sync({
+      request: evt,
+      // block: AnyChangePlayerES.except(evt),
+    });
+  }
+});
 
-//   while (true) {
-//     move = sync({ waitFor: StopES });
-//     bp.log.info(move);
+// Requirement: + - Current player has another turn
+ctx.bthread("plus card", GameQueryNames.GameTurns, function (gameTurnsEntity) {
+  while (true) {
+    let move = sync({
+      waitFor: DiscardMovesOfTypeES(CardSymbols.Plus),
+    });
+    bp.log.info(`plus card -> move: ${move}`);
 
-//     evt = createChangePlayerEvent(
-//       getNextPlayerIndex(
-//         getNextPlayerIndex(gameEntity.current, gameEntity.direction),
-//         gameEntity.direction
-//       )
-//     );
-//     sync({
-//       request: evt,
-//       block: AnyChangePlayerES.except(evt),
-//     });
+    let evt = createChangePlayerEvent(gameTurnsEntity.current);
+    sync({
+      request: evt,
+      // block: AnyChangePlayerES.except(evt),
+    });
+  }
+});
 
-//     move = null;
-//     evt = null;
-//   }
-// });
+// Requirement: A player can finish his cards and leave the game, but the other players will continue to play.
+ctx.bthread("winner", PlayerQueryNames.NoCards, function (playerEntity) {
+  sync({
+    request: createWinEvent(playerEntity.id),
+    block: [AnyChangePlayerES, AnyMoveES], // TODO: block any event except this winner
+  });
+});
 
-// // Requirement: + - Current player has another turn
-// ctx.bthread("plus", GameQueryNames.GameTurns, function (gameEntity) {
-//   while (true) {
-//     let move = sync({
-//       waitFor: PlusES,
-//     });
-//     bp.log.info(move);
+// Requirement:
+// Each player at his turn discards a card (or cards) onto the leading card, by:
+// (a) matching its color; or
+// (b) matching its number or figure; or
+// (c) using a SuperTaki, Change Color, King, or +3 card.
+// A player who cannot play draws one card from the draw pile.
+allPlayers.forEach((p) =>
+  ctx.bthread(
+    `generate all possible ${p.id} moves`,
+    PlayerQueryNames.PlayerTurn(p.id),
+    function (playerEntity) {
+      while (true) {
+        let gameStatusEntity = ctx.getEntityById(GAME_STATUS_ID);
 
-//     let evt = createChangePlayerEvent(gameEntity.current);
-//     sync({
-//       request: evt,
-//       block: AnyChangePlayerES.except(evt),
-//     });
-//   }
-// });
+        let cardEntities = Array.from(playerEntity.cards).map((cardId) =>
+          ctx.getEntityById(cardId)
+        );
 
-// // Requirement: A player can finish his cards and leave the game, but the other players will continue to play.
-// ctx.bthread("winner", PlayerQueryNames.NoCards, function (playerEntity) {
-//   sync({
-//     request: createWinEvent(playerEntity.id),
-//     block: [AnyChangePlayerES, AnyMove],
-//   });
-// });
+        let discardOptions = cardEntities.filter(
+          (card) =>
+            card.card.color === gameStatusEntity.color ||
+            card.card.symbol === gameStatusEntity.cardSymbol ||
+            [
+              CardSymbols.SuperTaki,
+              CardSymbols.ChangeColor,
+              CardSymbols.King,
+              CardSymbols.Plus3,
+            ].includes(card.card.symbol)
+        );
 
-// // Requirement:
-// //  Each player at his turn can do one of the 4 options:
-// //  - discard a card of the same number or color as the leading card
-// //  - discard a special card of the same figure or color as the leading card (and play according to it)
-// //  - discard a special uncolored card (and play according to it)
-// //  - draw one card and his turn ends
-// let allPlayers = ctx.runQuery(PlayerQueryNames.AllPlayers);
-// allPlayers.forEach((p) =>
-//   ctx.bthread(
-//     "generate all possible player moves",
-//     PlayerQueryNames.PlayerTurn(p.id),
-//     function (playerEntity) {}
-//   )
-// );
+        bp.log.info(`Discard options:`);
+        bp.log.info(discardOptions);
+
+        let optionalMoveEvents =
+          // discard moves
+          discardOptions
+            .map((card) => createDiscardMoveEvent(playerEntity.id, [card.id]))
+            // draw move
+            .concat(createRequestToDrawCardEvent(playerEntity.id, 1));
+        // TODO: create also multi-step moves of discarding cards in TAKI
+
+        let move = sync({ request: optionalMoveEvents });
+        bp.log.info(`Chosen move ${move} for ${playerEntity.id}`);
+      }
+    }
+  )
+);

@@ -9,7 +9,7 @@ const CardColors = {
 
 const CardNumbers = ["1", "3", "4", "5", "6", "7", "8", "9"]; // no 2, only "+2"
 
-const CardNames = {
+const CardSymbols = {
   Plus2: "+2",
   Plus: "+",
   Stop: "stop",

@@ -2,12 +2,12 @@ function createMoveEvent(playerId, steps) {
   return Event(EventNames.Move, { playerId, steps });
 }
 
-// function createStepEvent(card) {
-//   return Event(EventNames.Step, { card });
-// }
-
 function createDealCardByRequestEvent(requesterId, cardId) {
   return Event(EventNames.DealCardByRequest, { requesterId, cardId });
+}
+
+function createRequestInitCardsEvent(requesterId, amount) {
+  return Event(EventNames.RequestInitCards, { requesterId, amount });
 }
 
 function createRequestToDrawCardEvent(requesterId, amount) {
@@ -30,6 +30,14 @@ function createDiscardMoveEvent(discarderId, cardIds) {
   return Event(EventNames.DiscardMove, { discarderId, cardIds });
 }
 
+function createInitLeadingCardEvent(cardId) {
+  return Event(EventNames.InitLeadingCard, { cardId });
+}
+
+function createInitializedPlayerHandEvent(playerId) {
+  return Event(EventNames.InitializedPlayerHand, { playerId });
+}
+
 /////////////// Event Sets ///////////////
 
 const DealtCardRequesterES = (requesterId) =>
@@ -40,10 +48,13 @@ const DealtCardRequesterES = (requesterId) =>
     );
   });
 
-const RequestToDrawCardES = bp.EventSet(
+const RequestCardsFromDealerES = bp.EventSet(
   "request to draw card eventset",
   function (e) {
-    return e.name === EventNames.RequestToDrawCard;
+    return (
+      e.name === EventNames.RequestToDrawCard ||
+      e.name === EventNames.RequestInitCards
+    );
   }
 );
 
@@ -54,14 +65,30 @@ const AnyChangePlayerES = bp.EventSet(
   }
 );
 
-const DiscardCardES = bp.EventSet(
-  "discard card requests eventset",
-  function (e) {
-    return e.name === EventNames.DiscardMove;
-  }
-);
-
 const allEventsExcept = (events) =>
   bp.EventSet(`all events except ${events}`, function (e) {
     return events.every((evt) => evt.name !== e.name);
   });
+
+const AnyMoveES = bp.EventSet("any move eventset", function (e) {
+  return (
+    e.name === EventNames.RequestToDrawCard || e.name === EventNames.DiscardMove
+  );
+});
+
+const DiscardMovesOfTypeES = (cardName) =>
+  bp.EventSet(`discard moves of type ${cardName} eventset`, function (e) {
+    return (
+      e.name === EventNames.DiscardMove && getDiscardMoveType(e) === cardName
+    );
+  });
+
+const InitializedObjectsES = bp.EventSet(
+  "initialized objects eventset",
+  function (e) {
+    return (
+      e.name === EventNames.InitializedPlayerHand ||
+      e.name === EventNames.InitLeadingCard
+    );
+  }
+);

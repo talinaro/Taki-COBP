@@ -12,24 +12,24 @@
 const CardsAmounts = [].concat(
   // each number card - 2 of each color
   CardNumbers.map((number) => ({
-    name: number,
+    symbol: number,
     isColored: true,
     amount: 2,
   })),
   // +2, stop, change direction, plus, taki - 2 of each color
   [
-    { name: CardNames.Plus2, isColored: true, amount: 2 },
-    { name: CardNames.Stop, isColored: true, amount: 2 },
-    { name: CardNames.ChangeDirection, isColored: true, amount: 2 },
-    { name: CardNames.Plus, isColored: true, amount: 2 },
-    { name: CardNames.Taki, isColored: true, amount: 2 },
+    { symbol: CardSymbols.Plus2, isColored: true, amount: 2 },
+    { symbol: CardSymbols.Stop, isColored: true, amount: 2 },
+    { symbol: CardSymbols.ChangeDirection, isColored: true, amount: 2 },
+    { symbol: CardSymbols.Plus, isColored: true, amount: 2 },
+    { symbol: CardSymbols.Taki, isColored: true, amount: 2 },
     // change color - 4
-    { name: CardNames.ChangeColor, isColored: false, amount: 4 },
+    { symbol: CardSymbols.ChangeColor, isColored: false, amount: 4 },
     // super taki, king, +3, break +3 - 2 of each
-    { name: CardNames.SuperTaki, isColored: false, amount: 2 },
-    { name: CardNames.King, isColored: false, amount: 2 },
-    { name: CardNames.Plus3, isColored: false, amount: 2 },
-    { name: CardNames.BreakPlus3, isColored: false, amount: 2 },
+    { symbol: CardSymbols.SuperTaki, isColored: false, amount: 2 },
+    { symbol: CardSymbols.King, isColored: false, amount: 2 },
+    { symbol: CardSymbols.Plus3, isColored: false, amount: 2 },
+    { symbol: CardSymbols.BreakPlus3, isColored: false, amount: 2 },
   ]
 );
 
@@ -39,13 +39,13 @@ const AllCards = flat(
     if (card.isColored)
       return flat(
         Object.values(CardColors).map((color) =>
-          Array.from({ length: card.amount }, () => Card(card.name, color))
+          Array.from({ length: card.amount }, () => Card(card.symbol, color))
         )
       );
 
     // uncolored cards
     return Array.from({ length: card.amount }, () =>
-      Card(card.name, undefined)
+      Card(card.symbol, undefined)
     );
   })
 );
@@ -53,7 +53,7 @@ const AllCards = flat(
 /////////////// Context ///////////////
 
 const CardEntities = AllCards.map((card, i) =>
-  ctx.Entity(CardId(card.name, card.color, i), CARD_TYPE, { card })
+  ctx.Entity(CardId(card.symbol, card.color, i), CARD_TYPE, { card })
 );
 
 const PlayerEntities = PlayersIndexes.map((i) =>
@@ -70,8 +70,8 @@ ctx.populateContext(
     ctx.Entity(GAME_STATUS_ID, GAME_STATUS_TYPE, {
       leadingCardId: undefined,
       color: undefined,
-      cardName: undefined,
-      isActive: false, // TODO: should be separate isActive for TAKI, +2, +3? or maybe not bool, but "activeAction" that will be undefined or CardNames?
+      cardSymbol: undefined,
+      isActive: false, // TODO: should be separate isActive for TAKI, +2, +3? or maybe not bool, but "activeAction" that will be undefined or CardSymbols?
     }),
     // turns order
     ctx.Entity(GAME_TURNS_ID, GAME_TURNS_TYPE, {
@@ -83,17 +83,6 @@ ctx.populateContext(
 );
 
 /////////////// Queries ///////////////
-
-/** Queries:
- * current player's cards:
- * - separate query for each type card (to know how to create the move events in separate bthreads) ?
- * is player's last card
- * is player emptied his hand
- * is +2 sequence (and how many till now)
- * is +3 sequence (and how many till now)
- * is opened taki sequence
- * current color
- */
 
 ctx.registerQuery(CardQueryNames.AllCards, function (entity) {
   return entity.type === CARD_TYPE;
@@ -117,7 +106,12 @@ PlayerEntities.forEach((p) => {
 });
 
 ctx.registerQuery(PlayerQueryNames.NoCards, function (entity) {
-  return entity.type === PLAYER_TYPE && entity.cards.size === 0;
+  let gameTurnsEntity = ctx.getEntityById(GAME_TURNS_ID);
+  return (
+    entity.type === PLAYER_TYPE &&
+    entity.cards.size === 0 &&
+    gameTurnsEntity.current !== UNDEFINED_PLAYER_INDEX
+  );
 });
 
 /////////////// Effects ///////////////
@@ -156,8 +150,11 @@ ctx.registerEffect(
 
     gameStatusEntity.leadingCardId = cardEntity.id;
     gameStatusEntity.color = cardEntity.card.color;
-    gameStatusEntity.cardName = cardEntity.card.name;
-    gameStatusEntity.isActive = false;
+    gameStatusEntity.cardSymbol = cardEntity.card.symbol;
+    gameStatusEntity.isActive = false; // Requirement: If the leading card is a special card, ignore the action and play according to the color and sign.
+
+    bp.log.info("Init game status:");
+    bp.log.info(gameStatusEntity);
   }
 );
 
@@ -173,9 +170,11 @@ ctx.registerEffect(EventNames.DiscardMove, function (discardMoveEvtData) {
   if (discarderEntity.type === PLAYER_TYPE) {
     cardIds.forEach((cardId) => {
       discarderEntity.cards.delete(cardId);
-      bp.log.info(`${discarderId} discarded ${cardEntity.id}`);
+      bp.log.info(`${discarderId} discarded ${cardId}`);
     });
-    bp.log.info(`${discarderId} hand: ${discarderEntity.cards}`);
+
+    bp.log.info(`${discarderId} hand:`);
+    bp.log.info(discarderEntity.cards);
   }
 
   // update game status with the last discarded card
@@ -184,7 +183,7 @@ ctx.registerEffect(EventNames.DiscardMove, function (discardMoveEvtData) {
 
   gameStatusEntity.leadingCardId = lastCardEntity.id;
   gameStatusEntity.color = lastCardEntity.card.color;
-  gameStatusEntity.cardName = lastCardEntity.card.name;
+  gameStatusEntity.cardSymbol = lastCardEntity.card.symbol;
   gameStatusEntity.isActive = true;
 
   bp.log.info("Game status:");
@@ -196,7 +195,9 @@ ctx.registerEffect(EventNames.ChangePlayer, function (changePlayerEvtData) {
   let gameTurnsEntity = ctx.getEntityById(GAME_TURNS_ID);
   gameTurnsEntity.current = playerIndex;
 
-  bp.log.info(`Current player: ${gameTurnsEntity.current}`);
+  bp.log.info(
+    `Current player: ${gameTurnsEntity.playersOrder[gameTurnsEntity.current]}`
+  );
 });
 
 ctx.registerEffect(EventNames.ChangeDirection, function (data) {
@@ -209,14 +210,11 @@ ctx.registerEffect(EventNames.ChangeDirection, function (data) {
 });
 
 ctx.registerEffect(EventNames.Win, function (winEvtData) {
-  let winnerPlayerId = winEvtData.PlayerId;
+  let winnerPlayerId = winEvtData.playerId;
   let gameTurnsEntity = ctx.getEntityById(GAME_TURNS_ID);
 
   // calculate next turn
-  let nextPlayerIndex = getNextPlayerIndex(
-    gameTurnsEntity.current,
-    gameTurnsEntity.direction
-  );
+  let nextPlayerIndex = getNextPlayerIndex(gameTurnsEntity, 1);
   let nextPlayerId = gameTurnsEntity.playersOrder[nextPlayerIndex];
 
   // winner exits the game

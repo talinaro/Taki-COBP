@@ -1,6 +1,6 @@
-const CardId = (name, color, i) =>
-  color !== undefined ? `Card#${i}-${name}-${color}` : `Card#${i}-${name}`;
+const CardId = (symbol, color, i) =>
+  color !== undefined ? `Card#${i}-${symbol}-${color}` : `Card#${i}-${symbol}`;
 
-function Card(name, color) {
-  return { name, color };
+function Card(symbol, color) {
+  return { symbol, color };
 }

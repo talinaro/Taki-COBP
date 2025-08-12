@@ -1,8 +1,8 @@
 const PLAYER_TYPE = "player";
 
 // define number of players
-const PlayersNumber = 3;
-const PlayersIndexes = range(PlayersNumber);
+const PLAYERS_NUMBER = 3;
+const PlayersIndexes = range(PLAYERS_NUMBER);
 
 const INIT_PLAYER_CARDS_NUM = 8;
 const UNDEFINED_PLAYER_INDEX = -1;
