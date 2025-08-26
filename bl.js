@@ -178,7 +178,7 @@ bthread("change direction card", function () {
 });
 
 // Requirement: stop - Next player loses his turn
-ctx.bthread("stop card", GameQueryNames.GameTurns, function (gameTurnsEntity) {
+bthread("stop card", function () {
   while (true) {
     move = sync({ waitFor: DiscardMovesOfTypeES(CardSymbols.Stop) });
     bp.log.info(`stop card -> move: ${move}`);
@@ -192,12 +192,14 @@ ctx.bthread("stop card", GameQueryNames.GameTurns, function (gameTurnsEntity) {
 });
 
 // Requirement: + - Current player has another turn
-ctx.bthread("plus card", GameQueryNames.GameTurns, function (gameTurnsEntity) {
+bthread("plus card", function () {
   while (true) {
     let move = sync({
       waitFor: DiscardMovesOfTypeES(CardSymbols.Plus),
     });
     bp.log.info(`plus card -> move: ${move}`);
+
+    let gameTurnsEntity = ctx.getEntityById(GAME_TURNS_ID);
 
     let evt = createChangePlayerEvent(gameTurnsEntity.current);
     sync({
@@ -210,27 +212,23 @@ ctx.bthread("plus card", GameQueryNames.GameTurns, function (gameTurnsEntity) {
 // Requirement:
 // change color - Allows the user to determine the color to be played by the next player.
 //                This card may be played at any time except after +2 which is still active.
-ctx.bthread(
-  "change color card",
-  GameQueryNames.GameTurns,
-  function (gameTurnsEntity) {
-    while (true) {
-      let move = sync({
-        waitFor: DiscardMovesOfTypeES(CardSymbols.ChangeColor),
-      });
-      bp.log.info(`change color card -> move: ${move}`);
+bthread("change color card", function () {
+  while (true) {
+    let move = sync({
+      waitFor: DiscardMovesOfTypeES(CardSymbols.ChangeColor),
+    });
+    bp.log.info(`change color card -> move: ${move}`);
 
-      let changeColorEvts = Object.values(CardColors).map((color) =>
-        createChangeColorEvent(color)
-      );
+    let changeColorEvts = Object.values(CardColors).map((color) =>
+      createChangeColorEvent(color)
+    );
 
-      sync({
-        request: changeColorEvts,
-        block: [AnyMoveES, AnyChangePlayerES],
-      });
-    }
+    sync({
+      request: changeColorEvts,
+      block: [AnyMoveES, AnyChangePlayerES],
+    });
   }
-);
+});
 
 // Requirement: A player can finish his cards and leave the game, but the other players will continue to play.
 ctx.bthread("winner", PlayerQueryNames.NoCards, function (playerEntity) {
