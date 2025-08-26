@@ -180,7 +180,6 @@ bthread("change direction card", function () {
 // Requirement: stop - Next player loses his turn
 ctx.bthread("stop card", GameQueryNames.GameTurns, function (gameTurnsEntity) {
   while (true) {
-    bp.log.info("Start waiting for stop cards");
     move = sync({ waitFor: DiscardMovesOfTypeES(CardSymbols.Stop) });
     bp.log.info(`stop card -> move: ${move}`);
 
@@ -216,7 +215,6 @@ ctx.bthread(
   GameQueryNames.GameTurns,
   function (gameTurnsEntity) {
     while (true) {
-      bp.log.info("Waiting for change color move...");
       let move = sync({
         waitFor: DiscardMovesOfTypeES(CardSymbols.ChangeColor),
       });
