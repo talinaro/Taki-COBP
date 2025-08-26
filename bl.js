@@ -239,7 +239,7 @@ ctx.bthread("winner", PlayerQueryNames.NoCards, function (playerEntity) {
   let evt = createWinEvent(playerEntity.id);
   sync({
     request: evt,
-    block: allEventsExcept(evt),
+    block: allEventsExcept([evt]),
   });
 });
 
