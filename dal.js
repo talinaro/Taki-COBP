@@ -18,18 +18,18 @@ const CardsAmounts = [].concat(
   })),
   // +2, stop, change direction, plus, taki - 2 of each color
   [
-    { symbol: CardSymbols.Plus2, isColored: true, amount: 2 },
+    // { symbol: CardSymbols.Plus2, isColored: true, amount: 2 },
     { symbol: CardSymbols.Stop, isColored: true, amount: 2 },
     { symbol: CardSymbols.ChangeDirection, isColored: true, amount: 2 },
     { symbol: CardSymbols.Plus, isColored: true, amount: 2 },
-    { symbol: CardSymbols.Taki, isColored: true, amount: 2 },
+    // { symbol: CardSymbols.Taki, isColored: true, amount: 2 },
     // change color - 4
     { symbol: CardSymbols.ChangeColor, isColored: false, amount: 4 },
     // super taki, king, +3, break +3 - 2 of each
-    { symbol: CardSymbols.SuperTaki, isColored: false, amount: 2 },
-    { symbol: CardSymbols.King, isColored: false, amount: 2 },
-    { symbol: CardSymbols.Plus3, isColored: false, amount: 2 },
-    { symbol: CardSymbols.BreakPlus3, isColored: false, amount: 2 },
+    // { symbol: CardSymbols.SuperTaki, isColored: false, amount: 2 },
+    // { symbol: CardSymbols.King, isColored: false, amount: 2 },
+    // { symbol: CardSymbols.Plus3, isColored: false, amount: 2 },
+    // { symbol: CardSymbols.BreakPlus3, isColored: false, amount: 2 },
   ]
 );
 
@@ -188,10 +188,23 @@ ctx.registerEffect(EventNames.DiscardMove, function (discardMoveEvtData) {
 
   bp.log.info("Game status:");
   bp.log.info(gameStatusEntity);
+
+  // change dirction effect
+  if (getDiscardMoveType(discardMoveEvtData) === CardSymbols.ChangeDirection) {
+    bp.log.info("Envoke effect of change direction card");
+
+    let gameTurnsEntity = ctx.getEntityById(GAME_TURNS_ID);
+    gameTurnsEntity.direction = switchDirection(gameTurnsEntity.direction);
+
+    bp.log.info(`Turns direction: ${gameTurnsEntity.direction}`);
+  }
 });
 
 ctx.registerEffect(EventNames.ChangePlayer, function (changePlayerEvtData) {
   let playerIndex = changePlayerEvtData.playerIndex;
+
+  bp.log.info(`Envoke effect of change player to ${playerIndex}`);
+
   let gameTurnsEntity = ctx.getEntityById(GAME_TURNS_ID);
   gameTurnsEntity.current = playerIndex;
 
@@ -200,21 +213,27 @@ ctx.registerEffect(EventNames.ChangePlayer, function (changePlayerEvtData) {
   );
 });
 
-ctx.registerEffect(EventNames.ChangeDirection, function (data) {
-  bp.log.info("Envoke effect of change direction card");
+ctx.registerEffect(EventNames.ChangeColor, function (changeColorEvtData) {
+  bp.log.info(
+    `Envoke effect of change color card -> change to ${changeColorEvtData.color}`
+  );
 
-  let gameTurnsEntity = ctx.getEntityById(GAME_TURNS_ID);
-  gameTurnsEntity.direction = switchDirection(gameTurnsEntity.direction);
+  let gameStatusEntity = ctx.getEntityById(GAME_STATUS_ID);
+  gameStatusEntity.color = changeColorEvtData.color;
 
-  bp.log.info(`Turns direction: ${gameTurnsEntity.direction}`);
+  bp.log.info("Game status:");
+  bp.log.info(gameStatusEntity);
 });
 
 ctx.registerEffect(EventNames.Win, function (winEvtData) {
   let winnerPlayerId = winEvtData.playerId;
+
+  bp.log.info(`Envoke effect of the winner ${winnerPlayerId}`);
+
   let gameTurnsEntity = ctx.getEntityById(GAME_TURNS_ID);
 
   // calculate next turn
-  let nextPlayerIndex = getNextPlayerIndex(gameTurnsEntity, 1);
+  let nextPlayerIndex = getNextPlayerIndex(1);
   let nextPlayerId = gameTurnsEntity.playersOrder[nextPlayerIndex];
 
   // winner exits the game
@@ -222,4 +241,7 @@ ctx.registerEffect(EventNames.Win, function (winEvtData) {
 
   // update next turn
   gameTurnsEntity.current = gameTurnsEntity.playersOrder.indexOf(nextPlayerId);
+
+  bp.log.info("Remaining players:");
+  bp.log.info(gameTurnsEntity.playersOrder);
 });

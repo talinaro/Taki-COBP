@@ -16,7 +16,7 @@ const EventNames = {
   InitializedPlayerHand: "initialized player hand event",
   DiscardMove: "discard move event",
   ChangePlayer: "change player event",
-  ChangeDirection: "change direction",
+  ChangeColor: "change color event",
   Win: "win event",
 };
 

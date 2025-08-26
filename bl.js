@@ -148,24 +148,24 @@ bthread("start game after init", function () {
 // Requirement:
 // The players play one after another in clockwise order (index-growing).
 // The direction or order may change on some cases as elaborated below.
-ctx.bthread(
-  "advance turns",
-  GameQueryNames.GameTurns,
-  function (gameTurnsEntity) {
-    while (true) {
-      let move = sync({ waitFor: AnyMoveES });
-      bp.log.info(`advance turns -> move: ${move}`);
+bthread("advance turns", function () {
+  while (true) {
+    let move = sync({ waitFor: AnyMoveES });
+    bp.log.info(`advance turns -> move: ${move}`);
 
-      sync({
-        request: createChangePlayerEvent(
-          getNextPlayerIndex(gameTurnsEntity, 1)
-        ),
-        block: AnyMoveES,
-        waitFor: AnyChangePlayerES,
-      });
-    }
+    sync({
+      request: createChangePlayerEvent(getNextPlayerIndex(1)),
+      waitFor: AnyChangePlayerES,
+      block: AnyMoveES,
+    });
+
+    bp.log.info(
+      `change player event done (in advance turns): Player#${
+        ctx.getEntityById(GAME_TURNS_ID).current
+      }`
+    );
   }
-);
+});
 
 // Requirement: change direction - Reverses the direction of the play before advancing the turn
 bthread("change direction card", function () {
@@ -174,24 +174,20 @@ bthread("change direction card", function () {
       waitFor: DiscardMovesOfTypeES(CardSymbols.ChangeDirection),
     });
     bp.log.info(`change direction card -> move: ${move}`);
-
-    sync({
-      request: createChangeDirectionEvent(),
-      block: [AnyChangePlayerES, AnyMoveES],
-    });
   }
 });
 
 // Requirement: stop - Next player loses his turn
 ctx.bthread("stop card", GameQueryNames.GameTurns, function (gameTurnsEntity) {
   while (true) {
+    bp.log.info("Start waiting for stop cards");
     move = sync({ waitFor: DiscardMovesOfTypeES(CardSymbols.Stop) });
     bp.log.info(`stop card -> move: ${move}`);
 
-    evt = createChangePlayerEvent(getNextPlayerIndex(gameTurnsEntity, 2));
+    let evt = createChangePlayerEvent(getNextPlayerIndex(2));
     sync({
       request: evt,
-      // block: AnyChangePlayerES.except(evt),
+      block: [AnyMoveES, eventSetsDiff(AnyChangePlayerES, evt)],
     });
   }
 });
@@ -207,16 +203,43 @@ ctx.bthread("plus card", GameQueryNames.GameTurns, function (gameTurnsEntity) {
     let evt = createChangePlayerEvent(gameTurnsEntity.current);
     sync({
       request: evt,
-      // block: AnyChangePlayerES.except(evt),
+      block: [AnyMoveES, eventSetsDiff(AnyChangePlayerES, evt)],
     });
   }
 });
 
+// Requirement:
+// change color - Allows the user to determine the color to be played by the next player.
+//                This card may be played at any time except after +2 which is still active.
+ctx.bthread(
+  "change color card",
+  GameQueryNames.GameTurns,
+  function (gameTurnsEntity) {
+    while (true) {
+      bp.log.info("Waiting for change color move...");
+      let move = sync({
+        waitFor: DiscardMovesOfTypeES(CardSymbols.ChangeColor),
+      });
+      bp.log.info(`change color card -> move: ${move}`);
+
+      let changeColorEvts = Object.values(CardColors).map((color) =>
+        createChangeColorEvent(color)
+      );
+
+      sync({
+        request: changeColorEvts,
+        block: [AnyMoveES, AnyChangePlayerES],
+      });
+    }
+  }
+);
+
 // Requirement: A player can finish his cards and leave the game, but the other players will continue to play.
 ctx.bthread("winner", PlayerQueryNames.NoCards, function (playerEntity) {
+  let evt = createWinEvent(playerEntity.id);
   sync({
-    request: createWinEvent(playerEntity.id),
-    block: [AnyChangePlayerES, AnyMoveES], // TODO: block any event except this winner
+    request: evt,
+    block: allEventsExcept(evt),
   });
 });
 

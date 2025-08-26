@@ -18,8 +18,8 @@ function createChangePlayerEvent(playerIndex) {
   return Event(EventNames.ChangePlayer, { playerIndex });
 }
 
-function createChangeDirectionEvent() {
-  return Event(EventNames.ChangeDirection);
+function createChangeColorEvent(color) {
+  return Event(EventNames.ChangeColor, { color });
 }
 
 function createWinEvent(playerId) {
@@ -70,6 +70,11 @@ const allEventsExcept = (events) =>
     return events.every((evt) => evt.name !== e.name);
   });
 
+const eventSetsDiff = (mainES, subES) =>
+  bp.EventSet(`events in ${mainES} except ${subES}`, function (e) {
+    return mainES.contains(e) && !subES.contains(e);
+  });
+
 const AnyMoveES = bp.EventSet("any move eventset", function (e) {
   return (
     e.name === EventNames.RequestToDrawCard || e.name === EventNames.DiscardMove
@@ -79,7 +84,8 @@ const AnyMoveES = bp.EventSet("any move eventset", function (e) {
 const DiscardMovesOfTypeES = (cardName) =>
   bp.EventSet(`discard moves of type ${cardName} eventset`, function (e) {
     return (
-      e.name === EventNames.DiscardMove && getDiscardMoveType(e) === cardName
+      e.name === EventNames.DiscardMove &&
+      getDiscardMoveType(e.data) === cardName
     );
   });
 
