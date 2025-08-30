@@ -259,6 +259,7 @@ allPlayers.forEach((p) =>
 
         let discardOptions = cardEntities.filter(
           (card) =>
+            // common rules - similar color/symbol or uncolored cards
             card.card.color === gameStatusEntity.color ||
             card.card.symbol === gameStatusEntity.cardSymbol ||
             [
@@ -266,7 +267,9 @@ allPlayers.forEach((p) =>
               CardSymbols.ChangeColor,
               CardSymbols.King,
               CardSymbols.Plus3,
-            ].includes(card.card.symbol)
+            ].includes(card.card.symbol) ||
+            // when leading card color undefined -> everything valid
+            gameStatusEntity.color === undefined
         );
 
         bp.log.info(`Discard options:`);
