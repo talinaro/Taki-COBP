@@ -10,3 +10,7 @@ function removeByValue(l, v) {
   l.splice(l.indexOf(v), 1);
   return l;
 }
+
+function entetiesListToIds(enteties) {
+  return enteties.map((e) => e.id);
+}

@@ -22,11 +22,11 @@ const CardsAmounts = [].concat(
     { symbol: CardSymbols.Stop, isColored: true, amount: 2 },
     { symbol: CardSymbols.ChangeDirection, isColored: true, amount: 2 },
     { symbol: CardSymbols.Plus, isColored: true, amount: 2 },
-    // { symbol: CardSymbols.Taki, isColored: true, amount: 2 },
+    { symbol: CardSymbols.Taki, isColored: true, amount: 2 },
     // change color - 4
     { symbol: CardSymbols.ChangeColor, isColored: false, amount: 4 },
     // super taki, king, +3, break +3 - 2 of each
-    // { symbol: CardSymbols.SuperTaki, isColored: false, amount: 2 },
+    { symbol: CardSymbols.SuperTaki, isColored: false, amount: 2 },
     // { symbol: CardSymbols.King, isColored: false, amount: 2 },
     // { symbol: CardSymbols.Plus3, isColored: false, amount: 2 },
     // { symbol: CardSymbols.BreakPlus3, isColored: false, amount: 2 },
@@ -190,7 +190,9 @@ ctx.registerEffect(EventNames.DiscardMove, function (discardMoveEvtData) {
   bp.log.info(gameStatusEntity);
 
   // change dirction effect
-  if (getDiscardMoveType(discardMoveEvtData) === CardSymbols.ChangeDirection) {
+  if (
+    getDiscardMoveAction(discardMoveEvtData) === CardSymbols.ChangeDirection
+  ) {
     bp.log.info("Envoke effect of change direction card");
 
     let gameTurnsEntity = ctx.getEntityById(GAME_TURNS_ID);

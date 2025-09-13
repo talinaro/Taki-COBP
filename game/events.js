@@ -81,11 +81,11 @@ const AnyMoveES = bp.EventSet("any move eventset", function (e) {
   );
 });
 
-const DiscardMovesOfTypeES = (cardName) =>
-  bp.EventSet(`discard moves of type ${cardName} eventset`, function (e) {
+const DiscardMovesOfActionES = (cardName) =>
+  bp.EventSet(`discard moves of action ${cardName} eventset`, function (e) {
     return (
       e.name === EventNames.DiscardMove &&
-      getDiscardMoveType(e.data) === cardName
+      getDiscardMoveAction(e.data) === cardName
     );
   });
 

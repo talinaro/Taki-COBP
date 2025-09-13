@@ -138,11 +138,7 @@ bthread("start game after init", function () {
   for (let i = 0; i < PLAYERS_NUMBER + 1; i++)
     sync({ waitFor: InitializedObjectsES });
 
-  sync({
-    request: createChangePlayerEvent(0),
-    block: AnyMoveES,
-    waitFor: AnyChangePlayerES,
-  });
+  sync({ request: createChangePlayerEvent(0) });
 });
 
 // Requirement:
@@ -171,7 +167,7 @@ bthread("advance turns", function () {
 bthread("change direction card", function () {
   while (true) {
     let move = sync({
-      waitFor: DiscardMovesOfTypeES(CardSymbols.ChangeDirection),
+      waitFor: DiscardMovesOfActionES(CardSymbols.ChangeDirection),
     });
     bp.log.info(`change direction card -> move: ${move}`);
   }
@@ -180,7 +176,7 @@ bthread("change direction card", function () {
 // Requirement: stop - Next player loses his turn
 bthread("stop card", function () {
   while (true) {
-    move = sync({ waitFor: DiscardMovesOfTypeES(CardSymbols.Stop) });
+    move = sync({ waitFor: DiscardMovesOfActionES(CardSymbols.Stop) });
     bp.log.info(`stop card -> move: ${move}`);
 
     let evt = createChangePlayerEvent(getNextPlayerIndex(2));
@@ -195,7 +191,7 @@ bthread("stop card", function () {
 bthread("plus card", function () {
   while (true) {
     let move = sync({
-      waitFor: DiscardMovesOfTypeES(CardSymbols.Plus),
+      waitFor: DiscardMovesOfActionES(CardSymbols.Plus),
     });
     bp.log.info(`plus card -> move: ${move}`);
 
@@ -215,7 +211,7 @@ bthread("plus card", function () {
 bthread("change color card", function () {
   while (true) {
     let move = sync({
-      waitFor: DiscardMovesOfTypeES(CardSymbols.ChangeColor),
+      waitFor: DiscardMovesOfActionES(CardSymbols.ChangeColor),
     });
     bp.log.info(`change color card -> move: ${move}`);
 
@@ -260,32 +256,88 @@ allPlayers.forEach((p) =>
         let discardOptions = cardEntities.filter(
           (card) =>
             // common rules - similar color/symbol or uncolored cards
-            card.card.color === gameStatusEntity.color ||
-            card.card.symbol === gameStatusEntity.cardSymbol ||
-            [
-              CardSymbols.SuperTaki,
-              CardSymbols.ChangeColor,
-              CardSymbols.King,
-              CardSymbols.Plus3,
-            ].includes(card.card.symbol) ||
-            // when leading card color undefined -> everything valid
-            gameStatusEntity.color === undefined
+            (card.card.color === gameStatusEntity.color ||
+              card.card.symbol === gameStatusEntity.cardSymbol ||
+              [
+                CardSymbols.ChangeColor,
+                CardSymbols.King,
+                CardSymbols.Plus3,
+              ].includes(card.card.symbol) ||
+              // when leading card color undefined -> everything valid
+              gameStatusEntity.color === undefined) &&
+            // taki is treated separately later
+            ![CardSymbols.Taki, CardSymbols.SuperTaki].includes(
+              card.card.symbol
+            )
         );
 
-        bp.log.info(`Discard options:`);
+        bp.log.info("Discard options:");
         bp.log.info(discardOptions);
 
+        let discardMoveEvents = discardOptions.map((card) =>
+          createDiscardMoveEvent(playerEntity.id, [card.id])
+        );
+
+        // Requirement:
+        // taki - Allows a player to follow with all the cards of the same color as the TAKI.
+        //        NOTE: You may NOT play any other colors or uncolored cards during a Taki run except the color of the leading Taki card.
+        //      - When finished, should decalre "Closed TAKI!"
+        //        If didn't, the taki remains "opened" until any player declares of "Closed TAKI!", and the players may continue discrading
+        //        cards of the same color.
+        //      - The last card of the TAKI is played. All the special cards inbetween of the TAKI run are not activated.
+        //      - A single TAKI card opens the run and cannot be closed
+
+        let takiDiscardOptions = cardEntities
+          // taki of current color or super taki
+          .filter(
+            (card) =>
+              card.card.symbol === CardSymbols.SuperTaki ||
+              (card.card.symbol === CardSymbols.Taki &&
+                (card.card.color === gameStatusEntity.color ||
+                  card.card.symbol === gameStatusEntity.cardSymbol))
+          )
+          // create multi-step moves of taki with all similarly colored cards
+          .map((takiCard) =>
+            [takiCard].concat(
+              cardEntities.filter(
+                (card) =>
+                  card.id !== takiCard.id &&
+                  card.card.color === gameStatusEntity.color
+              )
+            )
+          );
+
+        bp.log.info("TAKI discard options:");
+        bp.log.info(takiDiscardOptions);
+
+        let takiDiscardMoveEvents = takiDiscardOptions.map((cards) =>
+          createDiscardMoveEvent(playerEntity.id, entetiesListToIds(cards))
+        );
+
         let optionalMoveEvents =
-          // discard moves
-          discardOptions
-            .map((card) => createDiscardMoveEvent(playerEntity.id, [card.id]))
+          // discard moves (single and multi step)
+          discardMoveEvents
+            .concat(takiDiscardMoveEvents)
             // draw move
             .concat(createRequestToDrawCardEvent(playerEntity.id, 1));
-        // TODO: create also multi-step moves of discarding cards in TAKI
 
-        let move = sync({ request: optionalMoveEvents });
+        let move = sync({
+          request: optionalMoveEvents,
+        });
         bp.log.info(`Chosen move ${move} for ${playerEntity.id}`);
       }
     }
   )
 );
+
+// bthread('aa', function() {
+//   sync({request: a, unless a leads to b})
+//   while (true) {
+//     if(cond) {
+//       let e = sync({request: a, waitFor: c})
+//       if(e==c)
+//     } else {
+//       sync({request: b})
+//     }
+// }
+// })
