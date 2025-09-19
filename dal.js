@@ -151,7 +151,7 @@ ctx.registerEffect(
     gameStatusEntity.leadingCardId = cardEntity.id;
     gameStatusEntity.color = cardEntity.card.color;
     gameStatusEntity.cardSymbol = cardEntity.card.symbol;
-    gameStatusEntity.isActive = false; // Requirement: If the leading card is a special card, ignore the action and play according to the color and sign.
+    gameStatusEntity.isActive = false; // Requirement: V - If the leading card is a special card, ignore the action and play according to the color and sign.
 
     bp.log.info("Init game status:");
     bp.log.info(gameStatusEntity);

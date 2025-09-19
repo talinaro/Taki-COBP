@@ -1,20 +1,21 @@
 /** Init requirements:
- * Define the playing order
- * Deal 8 cards to each player
+ * The cards are shuffled and each player receives eight
  * Rest of the cards are the draw pile
  * Draw one card from the top of the draw pile to form the discard pile (the top card of the discard pile is the leading card).
  * - If the leading card is a special card, ignore the action and play according to the color and sign.
  */
 
 /** Playing rules:
- * Each player at his turn discards a card (or cards) onto the leading card, by:
+ * Starting clockwise, each player at his turn discards a card (or cards) onto the leading card, by:
  * (a) matching its color; or
  * (b) matching its number or figure; or
  * (c) using a SuperTaki, Change Color, King, or +3 card.
  * A player who cannot play draws one card from the draw pile.
  * Player left with one card must declare "Last card!". If he fails before next player made his move, he draws 4 crads.
  * - NOTE: No need to declare "Last card!" when the last card left is during a taki run, because it considered one turn.
- * First player that gets rid of all his cards, wins the game
+ *
+ * The first player to empty their hand is the winner.
+ * The winner plays the first card in the next round.
  */
 
 /** Special cards rules:
@@ -66,6 +67,7 @@ ctx.bthread(
   }
 );
 
+// TODO: think if this is a "draw pile" requirement that needs rephrase, or implement otherwise
 bthread("dealer", function () {
   // init draw pile
   let allCards = ctx.runQuery(CardQueryNames.AllCards);
@@ -100,20 +102,23 @@ bthread("dealer", function () {
 });
 
 // Requirement:
-// Draw one card from the top of the draw pile to form the discard pile (the top card of the discard pile is the leading card).
+// V - Draw one card from the top of the draw pile to form the discard pile (the top card of the discard pile is the leading card).
 bthread("init leading card", function () {
   let gameStatusEntity = ctx.getEntityById(GAME_STATUS_ID);
   if (gameStatusEntity.leadingCardId === undefined) {
     sync({ request: createRequestInitCardsEvent(GAME_STATUS_ID, 1) });
     let leadingCardId = sync({ waitFor: DealtCardRequesterES(GAME_STATUS_ID) })
       .data.cardId;
+
+    // TODO: Is it extra requirement to announce the "start game" bthread to start?
     sync({ request: createInitLeadingCardEvent(leadingCardId) });
 
     bp.log.info(`Leading card: ${gameStatusEntity.leadingCardId}`);
   }
 });
 
-// Requirement: The cards are shuffled and each player receives eight cards
+// Requirement:
+// V - The cards are shuffled and each player receives eight
 ctx.bthread(
   "deal 8 cards to player",
   PlayerQueryNames.AllPlayers,
@@ -126,6 +131,7 @@ ctx.bthread(
     });
     sync({ waitFor: DealtCardRequesterES(playerEntity.id) });
 
+    // TODO: Is it extra requirement to announce the "start game" bthread to start?
     sync({ request: createInitializedPlayerHandEvent(playerEntity.id) });
 
     bp.log.info(`${playerEntity.id} cards:`);
@@ -133,7 +139,8 @@ ctx.bthread(
   }
 );
 
-// Game starts after init by defining first player turn
+// Requirement:
+// X - Game starts after init (all players got 8 cards, and leading card is set) by defining first player turn
 bthread("start game after init", function () {
   for (let i = 0; i < PLAYERS_NUMBER + 1; i++)
     sync({ waitFor: InitializedObjectsES });
@@ -142,8 +149,8 @@ bthread("start game after init", function () {
 });
 
 // Requirement:
-// The players play one after another in clockwise order (index-growing).
-// The direction or order may change on some cases as elaborated below.
+// V - The players play one after another in clockwise order (index-growing).
+// X - The direction or order may change on some cases as elaborated below.
 bthread("advance turns", function () {
   while (true) {
     let move = sync({ waitFor: AnyMoveES });
@@ -151,7 +158,7 @@ bthread("advance turns", function () {
 
     sync({
       request: createChangePlayerEvent(getNextPlayerIndex(1)),
-      waitFor: AnyChangePlayerES,
+      waitFor: AnyChangePlayerES, // ALIGNED with the extra requirement
       block: AnyMoveES,
     });
 
@@ -163,7 +170,8 @@ bthread("advance turns", function () {
   }
 });
 
-// Requirement: change direction - Reverses the direction of the play before advancing the turn
+// Requirement:
+// V - change direction - Reverses the direction of the play
 bthread("change direction card", function () {
   while (true) {
     let move = sync({
@@ -173,7 +181,9 @@ bthread("change direction card", function () {
   }
 });
 
-// Requirement: stop - Next player loses his turn
+// Requirement:
+// V - stop - Next player loses his turn
+// X -        advance the turn to the next next player *before any move is taken*
 bthread("stop card", function () {
   while (true) {
     move = sync({ waitFor: DiscardMovesOfActionES(CardSymbols.Stop) });
@@ -182,12 +192,14 @@ bthread("stop card", function () {
     let evt = createChangePlayerEvent(getNextPlayerIndex(2));
     sync({
       request: evt,
-      block: [AnyMoveES, eventSetsDiff(AnyChangePlayerES, evt)],
+      block: [AnyMoveES, eventSetsDiff(AnyChangePlayerES, evt)], // ALIGNED with the extra requirement
     });
   }
 });
 
-// Requirement: + - Current player has another turn
+// Requirement:
+// V - + - Current player has another turn
+// X -     assign the turn again to the current player *before any move is taken*
 bthread("plus card", function () {
   while (true) {
     let move = sync({
@@ -200,14 +212,14 @@ bthread("plus card", function () {
     let evt = createChangePlayerEvent(gameTurnsEntity.current);
     sync({
       request: evt,
-      block: [AnyMoveES, eventSetsDiff(AnyChangePlayerES, evt)],
+      block: [AnyMoveES, eventSetsDiff(AnyChangePlayerES, evt)], // ALIGNED with the extra requirement
     });
   }
 });
 
 // Requirement:
-// change color - Allows the user to determine the color to be played by the next player.
-//                This card may be played at any time except after +2 which is still active.
+// V - change color - Allows the user to determine the color to be played by the next player.
+//                    This card may be played at any time except after +2 which is still active.  // TODO: this requirement is not satisfied yet
 bthread("change color card", function () {
   while (true) {
     let move = sync({
@@ -219,20 +231,21 @@ bthread("change color card", function () {
       createChangeColorEvent(color)
     );
 
-    sync({
-      request: changeColorEvts,
-      block: [AnyMoveES, AnyChangePlayerES],
-    });
+    sync({ request: changeColorEvts });
   }
 });
 
-// Requirement: A player can finish his cards and leave the game, but the other players will continue to play.
+// Requirement:
+// V - The first player to empty their hand is the winner
+// X - and the game ends.
+//     The winner plays the first card in the next round.   // TODO: this requirement is not satisfied yet - HOW??
 ctx.bthread("winner", PlayerQueryNames.NoCards, function (playerEntity) {
   let evt = createWinEvent(playerEntity.id);
   sync({
     request: evt,
     block: allEventsExcept([evt]),
   });
+  sync({ block: bp.eventSets.all }); // ALIGNED with the extra requirement
 });
 
 // Requirement:
@@ -278,14 +291,17 @@ allPlayers.forEach((p) =>
           createDiscardMoveEvent(playerEntity.id, [card.id])
         );
 
+        // TODO: The alignment is broken by multiple requirements in one bthread (?)
         // Requirement:
-        // taki - Allows a player to follow with all the cards of the same color as the TAKI.
-        //        NOTE: You may NOT play any other colors or uncolored cards during a Taki run except the color of the leading Taki card.
-        //      - When finished, should decalre "Closed TAKI!"
-        //        If didn't, the taki remains "opened" until any player declares of "Closed TAKI!", and the players may continue discrading
-        //        cards of the same color.
-        //      - The last card of the TAKI is played. All the special cards inbetween of the TAKI run are not activated.
-        //      - A single TAKI card opens the run and cannot be closed
+        // V - taki   - Allows a player to follow with all the cards of the same color as the TAKI.
+        //              NOTE: You may NOT play any other colors or uncolored cards during a Taki run except the color of the leading Taki card.
+        //            - When finished, should decalre "Closed TAKI!"
+        //              If didn't, the taki remains "opened" until any player declares of "Closed TAKI!", and the players may continue discrading
+        //              cards of the same color.
+        //            - The last card of the TAKI is played. All the special cards inbetween of the TAKI run are not activated.
+        //            - A single TAKI card opens the run and cannot be closed
+        // V - super taki - Same like taki, but adopts the color of the leading card.
+        //                - If put on a king, the player can choose the color.    // TODO: this requirement is not satisfied yet
 
         let takiDiscardOptions = cardEntities
           // taki of current color or super taki
