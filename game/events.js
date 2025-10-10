@@ -1,7 +1,3 @@
-function createMoveEvent(playerId, steps) {
-  return Event(EventNames.Move, { playerId, steps });
-}
-
 function createDealCardByRequestEvent(requesterId, cardId) {
   return Event(EventNames.DealCardByRequest, { requesterId, cardId });
 }
@@ -28,14 +24,6 @@ function createWinEvent(playerId) {
 
 function createDiscardMoveEvent(discarderId, cardIds) {
   return Event(EventNames.DiscardMove, { discarderId, cardIds });
-}
-
-function createInitLeadingCardEvent(cardId) {
-  return Event(EventNames.InitLeadingCard, { cardId });
-}
-
-function createInitializedPlayerHandEvent(playerId) {
-  return Event(EventNames.InitializedPlayerHand, { playerId });
 }
 
 /////////////// Event Sets ///////////////
@@ -88,13 +76,3 @@ const DiscardMovesOfActionES = (cardName) =>
       getDiscardMoveAction(e.data) === cardName
     );
   });
-
-const InitializedObjectsES = bp.EventSet(
-  "initialized objects eventset",
-  function (e) {
-    return (
-      e.name === EventNames.InitializedPlayerHand ||
-      e.name === EventNames.InitLeadingCard
-    );
-  }
-);

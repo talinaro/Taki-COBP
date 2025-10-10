@@ -102,22 +102,6 @@ bthread("dealer", function () {
 });
 
 // Requirement:
-// V - Draw one card from the top of the draw pile to form the discard pile (the top card of the discard pile is the leading card).
-bthread("init leading card", function () {
-  let gameStatusEntity = ctx.getEntityById(GAME_STATUS_ID);
-  if (gameStatusEntity.leadingCardId === undefined) {
-    sync({ request: createRequestInitCardsEvent(GAME_STATUS_ID, 1) });
-    let leadingCardId = sync({ waitFor: DealtCardRequesterES(GAME_STATUS_ID) })
-      .data.cardId;
-
-    // TODO: Is it extra requirement to announce the "start game" bthread to start?
-    sync({ request: createInitLeadingCardEvent(leadingCardId) });
-
-    bp.log.info(`Leading card: ${gameStatusEntity.leadingCardId}`);
-  }
-});
-
-// Requirement:
 // V - The cards are shuffled and each player receives eight
 ctx.bthread(
   "deal 8 cards to player",
@@ -129,10 +113,9 @@ ctx.bthread(
         INIT_PLAYER_CARDS_NUM
       ),
     });
-    sync({ waitFor: DealtCardRequesterES(playerEntity.id) });
 
-    // TODO: Is it extra requirement to announce the "start game" bthread to start?
-    sync({ request: createInitializedPlayerHandEvent(playerEntity.id) });
+    for (let i = 0; i < INIT_PLAYER_CARDS_NUM; i++)
+      sync({ waitFor: DealtCardRequesterES(playerEntity.id) });
 
     bp.log.info(`${playerEntity.id} cards:`);
     bp.log.info(playerEntity);
@@ -140,13 +123,15 @@ ctx.bthread(
 );
 
 // Requirement:
-// X - Game starts after init (all players got 8 cards, and leading card is set) by defining first player turn
-bthread("start game after init", function () {
-  for (let i = 0; i < PLAYERS_NUMBER + 1; i++)
-    sync({ waitFor: InitializedObjectsES });
-
-  sync({ request: createChangePlayerEvent(0) });
-});
+// V - Draw one card from the top of the draw pile to form the discard pile (the top card of the discard pile is the leading card).
+ctx.bthread(
+  "init leading card",
+  GameQueryNames.GameNoLeadingCard,
+  function (gameStatusEntity) {
+    sync({ request: createRequestInitCardsEvent(GAME_STATUS_ID, 1) });
+    sync({ waitFor: DealtCardRequesterES(GAME_STATUS_ID) });
+  }
+);
 
 // Requirement:
 // V - The players play one after another in clockwise order (index-growing).
@@ -178,6 +163,8 @@ bthread("change direction card", function () {
       waitFor: DiscardMovesOfActionES(CardSymbols.ChangeDirection),
     });
     bp.log.info(`change direction card -> move: ${move}`);
+
+    // TODO: try to request change player event as below
   }
 });
 
@@ -240,10 +227,10 @@ bthread("change color card", function () {
 // X - and the game ends.
 //     The winner plays the first card in the next round.   // TODO: this requirement is not satisfied yet - HOW??
 ctx.bthread("winner", PlayerQueryNames.NoCards, function (playerEntity) {
-  let evt = createWinEvent(playerEntity.id);
+  let winEvt = createWinEvent(playerEntity.id);
   sync({
-    request: evt,
-    block: allEventsExcept([evt]),
+    request: winEvt,
+    block: allEventsExcept([winEvt]),
   });
   sync({ block: bp.eventSets.all }); // ALIGNED with the extra requirement
 });
@@ -339,6 +326,7 @@ allPlayers.forEach((p) =>
 
         let move = sync({
           request: optionalMoveEvents,
+          // TODO: separate into bthreads according to the sub-requirements, and add here waitfor so only one move would be chosen
         });
         bp.log.info(`Chosen move ${move} for ${playerEntity.id}`);
       }

@@ -13,3 +13,7 @@ function getDiscardMoveAction(discardMoveEvtData) {
   ).card;
   return lastCard.symbol;
 }
+
+function isAfterInit() {
+  return ctx.getEntityById(GAME_STATUS_ID).leadingCardId !== undefined;
+}

@@ -12,8 +12,6 @@ const EventNames = {
   RequestInitCards: "request init cards event",
   RequestToDrawCard: "request to draw card event",
   DealCardByRequest: "deal card by request event",
-  InitLeadingCard: "set leading card request event",
-  InitializedPlayerHand: "initialized player hand event",
   DiscardMove: "discard move event",
   ChangePlayer: "change player event",
   ChangeColor: "change color event",
@@ -23,5 +21,5 @@ const EventNames = {
 /////////////// Query Names ///////////////
 
 const GameQueryNames = {
-  GameTurns: "game turns query",
+  GameNoLeadingCard: "game no leading card query",
 };

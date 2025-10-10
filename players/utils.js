@@ -15,5 +15,7 @@ function getNextPlayerIndex(increaseBy) {
 }
 
 function isFullInitHand(player) {
-  return player.cards.size === INIT_PLAYER_CARDS_NUM;
+  return (
+    player.cards !== undefined && player.cards.size === INIT_PLAYER_CARDS_NUM
+  );
 }

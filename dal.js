@@ -56,8 +56,8 @@ const CardEntities = AllCards.map((card, i) =>
   ctx.Entity(CardId(card.symbol, card.color, i), CARD_TYPE, { card })
 );
 
-const PlayerEntities = PlayersIndexes.map((i) =>
-  ctx.Entity(PlayerId(i), PLAYER_TYPE, { cards: new Set() })
+const PlayerEntities = PlayersIndexes.map(
+  (i) => ctx.Entity(PlayerId(i), PLAYER_TYPE, { cards: undefined }) // when defined, cards type is Set
 );
 
 ctx.populateContext(
@@ -76,7 +76,7 @@ ctx.populateContext(
     // turns order
     ctx.Entity(GAME_TURNS_ID, GAME_TURNS_TYPE, {
       playersOrder: PlayerEntities.map((p) => p.id),
-      current: UNDEFINED_PLAYER_INDEX,
+      current: 0,
       direction: INIT_DIRECTION,
     })
   )
@@ -92,13 +92,20 @@ ctx.registerQuery(PlayerQueryNames.AllPlayers, function (entity) {
   return entity.type === PLAYER_TYPE;
 });
 
-ctx.registerQuery(GameQueryNames.GameTurns, function (entity) {
-  return entity.id === GAME_TURNS_ID;
+ctx.registerQuery(GameQueryNames.GameNoLeadingCard, function (entity) {
+  let areAllPlayersInit = PlayerEntities.every((p) => isFullInitHand(p));
+
+  return (
+    entity.id === GAME_STATUS_ID &&
+    entity.leadingCardId === undefined &&
+    areAllPlayersInit
+  );
 });
 
 PlayerEntities.forEach((p) => {
   ctx.registerQuery(PlayerQueryNames.PlayerTurn(p.id), function (entity) {
     return (
+      isAfterInit() &&
       entity.id === p.id &&
       ctx.getEntityById(GAME_TURNS_ID).current === PlayerIndex(p.id)
     );
@@ -106,11 +113,8 @@ PlayerEntities.forEach((p) => {
 });
 
 ctx.registerQuery(PlayerQueryNames.NoCards, function (entity) {
-  let gameTurnsEntity = ctx.getEntityById(GAME_TURNS_ID);
   return (
-    entity.type === PLAYER_TYPE &&
-    entity.cards.size === 0 &&
-    gameTurnsEntity.current !== UNDEFINED_PLAYER_INDEX
+    isAfterInit() && entity.type === PLAYER_TYPE && entity.cards.size === 0
   );
 });
 
@@ -123,40 +127,34 @@ ctx.registerEffect(EventNames.DealCardByRequest, function (drawCardEvtData) {
   bp.log.info(`Envoke effect of dealing ${cardId} to ${requesterId}`);
 
   let requesterEntity = ctx.getEntityById(requesterId);
+  let cardEntity = ctx.getEntityById(cardId);
 
   // deal card to player
   if (requesterEntity.type === PLAYER_TYPE) {
+    if (requesterEntity.cards === undefined) {
+      requesterEntity.cards = new Set();
+    }
     requesterEntity.cards.add(cardId);
     bp.log.info(`${requesterId} has ${requesterEntity.cards.size} cards`);
     bp.log.info(requesterEntity);
   }
   // set leading card
   else if (requesterEntity.type === GAME_STATUS_ID) {
-    requesterEntity.leadingCardId = cardId;
-  } else {
+    requesterEntity.leadingCardId = cardEntity.id;
+    requesterEntity.color = cardEntity.card.color;
+    requesterEntity.cardSymbol = cardEntity.card.symbol;
+    requesterEntity.isActive = false; // Requirement: V - If the leading card is a special card, ignore the action and play according to the color and sign.
+
+    bp.log.info(`Leading card: ${requesterEntity.leadingCardId}`);
+
+    bp.log.info("Init game status:");
+    bp.log.info(requesterEntity);
+  }
+  // card cannot be requested by non-player or game status
+  else {
     bp.log.info(`Ivalid draw card requester ${requesterId}`);
   }
 });
-
-ctx.registerEffect(
-  EventNames.InitLeadingCard,
-  function (initLeadingCardEvtData) {
-    let cardId = initLeadingCardEvtData.cardId;
-
-    bp.log.info(`Envoke effect of init leading card ${cardId}`);
-
-    let cardEntity = ctx.getEntityById(cardId);
-    let gameStatusEntity = ctx.getEntityById(GAME_STATUS_ID);
-
-    gameStatusEntity.leadingCardId = cardEntity.id;
-    gameStatusEntity.color = cardEntity.card.color;
-    gameStatusEntity.cardSymbol = cardEntity.card.symbol;
-    gameStatusEntity.isActive = false; // Requirement: V - If the leading card is a special card, ignore the action and play according to the color and sign.
-
-    bp.log.info("Init game status:");
-    bp.log.info(gameStatusEntity);
-  }
-);
 
 ctx.registerEffect(EventNames.DiscardMove, function (discardMoveEvtData) {
   let cardIds = discardMoveEvtData.cardIds;
