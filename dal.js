@@ -186,18 +186,6 @@ ctx.registerEffect(EventNames.DiscardMove, function (discardMoveEvtData) {
 
   bp.log.info("Game status:");
   bp.log.info(gameStatusEntity);
-
-  // change dirction effect
-  if (
-    getDiscardMoveAction(discardMoveEvtData) === CardSymbols.ChangeDirection
-  ) {
-    bp.log.info("Envoke effect of change direction card");
-
-    let gameTurnsEntity = ctx.getEntityById(GAME_TURNS_ID);
-    gameTurnsEntity.direction = switchDirection(gameTurnsEntity.direction);
-
-    bp.log.info(`Turns direction: ${gameTurnsEntity.direction}`);
-  }
 });
 
 ctx.registerEffect(EventNames.ChangePlayer, function (changePlayerEvtData) {
@@ -224,6 +212,18 @@ ctx.registerEffect(EventNames.ChangeColor, function (changeColorEvtData) {
   bp.log.info("Game status:");
   bp.log.info(gameStatusEntity);
 });
+
+ctx.registerEffect(
+  EventNames.ChangeDirection,
+  function (changeDirectionEvtData) {
+    bp.log.info("Envoke effect of change direction card");
+
+    let gameTurnsEntity = ctx.getEntityById(GAME_TURNS_ID);
+    gameTurnsEntity.direction = switchDirection(gameTurnsEntity.direction);
+
+    bp.log.info(`Turns direction: ${gameTurnsEntity.direction}`);
+  }
+);
 
 ctx.registerEffect(EventNames.Win, function (winEvtData) {
   let winnerPlayerId = winEvtData.playerId;

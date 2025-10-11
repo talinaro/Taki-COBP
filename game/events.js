@@ -18,6 +18,10 @@ function createChangeColorEvent(color) {
   return Event(EventNames.ChangeColor, { color });
 }
 
+function createChangeDirectionEvent() {
+  return Event(EventNames.ChangeDirection);
+}
+
 function createWinEvent(playerId) {
   return Event(EventNames.Win, { playerId });
 }

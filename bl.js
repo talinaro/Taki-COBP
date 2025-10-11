@@ -146,12 +146,6 @@ bthread("advance turns", function () {
       waitFor: AnyChangePlayerES, // ALIGNED with the extra requirement
       block: AnyMoveES,
     });
-
-    bp.log.info(
-      `change player event done (in advance turns): Player#${
-        ctx.getEntityById(GAME_TURNS_ID).current
-      }`
-    );
   }
 });
 
@@ -164,7 +158,16 @@ bthread("change direction card", function () {
     });
     bp.log.info(`change direction card -> move: ${move}`);
 
-    // TODO: try to request change player event as below
+    let evt = createChangePlayerEvent(getNextPlayerIndex(-1));
+    sync({
+      request: evt,
+      block: [AnyMoveES, eventSetsDiff(AnyChangePlayerES, evt)], // ALIGNED with the extra requirement (TODO: relevant comment?)
+    });
+
+    sync({
+      request: createChangeDirectionEvent(),
+      block: [AnyMoveES, AnyChangePlayerES],
+    });
   }
 });
 
