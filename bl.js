@@ -242,11 +242,11 @@ ctx.bthread("winner", PlayerQueryNames.NoCards, function (playerEntity) {
 // Each player at his turn discards a card (or cards) onto the leading card, by:
 // (a) matching its color; or
 // (b) matching its number or figure; or
-// (c) using a SuperTaki, Change Color, King, or +3 card.
+// (c) TODO: using a ~SuperTaki~, Change Color, King, or +3 card.
 // A player who cannot play draws one card from the draw pile.
 allPlayers.forEach((p) =>
   ctx.bthread(
-    `generate all possible ${p.id} moves`,
+    `generate all possible ${p.id} single card moves`,
     PlayerQueryNames.PlayerTurn(p.id),
     function (playerEntity) {
       while (true) {
@@ -266,9 +266,9 @@ allPlayers.forEach((p) =>
                 CardSymbols.King,
                 CardSymbols.Plus3,
               ].includes(card.card.symbol) ||
-              // when leading card color undefined -> everything valid
+              // when leading card color undefined -> everything valid  // TODO: X - extra requirement
               gameStatusEntity.color === undefined) &&
-            // taki is treated separately later
+            // taki is treated separately later  // TODO: decide if remove
             ![CardSymbols.Taki, CardSymbols.SuperTaki].includes(
               card.card.symbol
             )
@@ -281,17 +281,35 @@ allPlayers.forEach((p) =>
           createDiscardMoveEvent(playerEntity.id, [card.id])
         );
 
-        // TODO: The alignment is broken by multiple requirements in one bthread (?)
-        // Requirement:
-        // V - taki   - Allows a player to follow with all the cards of the same color as the TAKI.
-        //              NOTE: You may NOT play any other colors or uncolored cards during a Taki run except the color of the leading Taki card.
-        //            - When finished, should decalre "Closed TAKI!"
-        //              If didn't, the taki remains "opened" until any player declares of "Closed TAKI!", and the players may continue discrading
-        //              cards of the same color.
-        //            - The last card of the TAKI is played. All the special cards inbetween of the TAKI run are not activated.
-        //            - A single TAKI card opens the run and cannot be closed
-        // V - super taki - Same like taki, but adopts the color of the leading card.
-        //                - If put on a king, the player can choose the color.    // TODO: this requirement is not satisfied yet
+        let move = sync({ request: discardMoveEvents, waitFor: AnyMoveES });
+        bp.log.info(`Chosen move ${move} for ${playerEntity.id}`);
+      }
+    }
+  )
+);
+
+// TODO: The alignment is broken by multiple requirements in one bthread (?)
+// Requirement:
+// V - taki - Allows a player to follow with all the cards of the same color as the TAKI.
+//            NOTE: You may NOT play any other colors or uncolored cards during a Taki run except the color of the leading Taki card.
+//          - When finished, should decalre "Closed TAKI!"
+//            If didn't, the taki remains "opened" until any player declares of "Closed TAKI!", and the players may continue discrading
+//            cards of the same color.
+//          - The last card of the TAKI is played. All the special cards inbetween of the TAKI run are not activated.
+//          - A single TAKI card opens the run and cannot be closed
+// V - super taki - Same like taki, but adopts the color of the leading card.
+//                - If put on a king, the player can choose the color.    // TODO: this requirement is not satisfied yet
+allPlayers.forEach((p) =>
+  ctx.bthread(
+    `generate all possible ${p.id} multiple cards moves`,
+    PlayerQueryNames.PlayerTurn(p.id),
+    function (playerEntity) {
+      while (true) {
+        let gameStatusEntity = ctx.getEntityById(GAME_STATUS_ID);
+
+        let cardEntities = Array.from(playerEntity.cards).map((cardId) =>
+          ctx.getEntityById(cardId)
+        );
 
         let takiDiscardOptions = cardEntities
           // taki of current color or super taki
@@ -302,7 +320,7 @@ allPlayers.forEach((p) =>
                 (card.card.color === gameStatusEntity.color ||
                   card.card.symbol === gameStatusEntity.cardSymbol))
           )
-          // create multi-step moves of taki with all similarly colored cards
+          // create multi-cards moves of taki with all similarly colored cards
           .map((takiCard) =>
             [takiCard].concat(
               cardEntities.filter(
@@ -320,16 +338,25 @@ allPlayers.forEach((p) =>
           createDiscardMoveEvent(playerEntity.id, entetiesListToIds(cards))
         );
 
-        let optionalMoveEvents =
-          // discard moves (single and multi step)
-          discardMoveEvents
-            .concat(takiDiscardMoveEvents)
-            // draw move
-            .concat(createRequestToDrawCardEvent(playerEntity.id, 1));
+        let move = sync({ request: takiDiscardMoveEvents, waitFor: AnyMoveES });
 
+        bp.log.info(`Chosen move ${move} for ${playerEntity.id}`);
+      }
+    }
+  )
+);
+
+// Requirement:
+// V - A player who cannot play draws one card from the draw pile.
+allPlayers.forEach((p) =>
+  ctx.bthread(
+    `generate ${p.id} draw card move`,
+    PlayerQueryNames.PlayerTurn(p.id),
+    function (playerEntity) {
+      while (true) {
         let move = sync({
-          request: optionalMoveEvents,
-          // TODO: separate into bthreads according to the sub-requirements, and add here waitfor so only one move would be chosen
+          request: createRequestToDrawCardEvent(playerEntity.id, 1),
+          waitFor: AnyMoveES,
         });
         bp.log.info(`Chosen move ${move} for ${playerEntity.id}`);
       }
